@@ -16,7 +16,7 @@ Source of truth: overrules `ARCHITECTURE.md` and `ROADMAP.md`. A code is the roa
 | A4 | Reference | Decided | Port the objective, constants and loop from gskaggs/Pyxeled, and check parity against its output (`docs/PORTING.md`). Spec. |
 | A5 | Compute location | Decided | No heavy jobs on the dev laptop (~15 GB RAM, no GPU). Run them remotely. Global user rule. |
 | B1 | Pyxeled bugs | Decided | The five bugs in `docs/PORTING.md` stay fixed by default and are reproduced only under `--pyxeled-compat`, for the parity check (A4). User choice. |
-| B2 | Float precision | Decided | `F = f32`. Parity ΔE vs Pyxeled is 1.60 (f64: 0.49), with similar output quality. Accepted by user. |
+| B2 | Float precision | Decided | `F = f32`. Parity ΔE vs Pyxeled is 1.60 (f64: 0.46), with similar output quality. Accepted by user. |
 | B3 | Input downscale | Decided | Keep Lanczos to ≤ 4× the output grid (`--input-factor 4`, 0 = off). The benchmark is built on factor 4. Delegated to agent. |
 | B4 | Hard palette limit | Decided | Keep: if annealing stops before K_max, the remaining pairs are merged and associated once more, so output never exceeds `-k`. `-k` is a hard contract. Delegated to agent. |
 | B5 | Default saturation | Decided | Keep the paper's 1.1× a/b boost as the CLI default. The benchmark pins 1.0, so ΔE is unaffected. Delegated to agent. |

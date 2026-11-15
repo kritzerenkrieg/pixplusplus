@@ -32,12 +32,16 @@ Working space is Oklab × 100, so these CIELAB-tuned constants stay on the same 
 | run | colours | ΔE→source | ΔE vs Pyxeled out | px within ΔE 5 | palette dist |
 |---|---|---|---|---|---|
 | Pyxeled reference | 42 | 3.13 | — | — | — |
-| PIARU compat, f64 | 41 | 3.10 | 0.49 | 97 % | 0.38 / 0.44 |
+| PIARU compat, f64 | 41 | 3.10 | 0.46 | 97 % | 0.34 / 0.40 |
 | PIARU compat, f32 | 29 | 3.17 | 1.60 | 94 % | 0.87 / 1.33 |
 | PIARU Oklab (default) | 18 | 2.64 | 3.68 | 82 % | — |
 
 (ΔE values are Oklab × 100.) The f32 gap comes from split decisions near ε_cluster: precision
 changes which clusters split, but not output quality.
+
+The f64 row is measured with a temporary `pub type F = f64` in `src/color.rs`, a release rebuild,
+and a revert; there is no runtime flag for it. The shipped build is f32 (B2), so the routine check
+is the f32 row. Re-measured 2026-11-15: f32 1.60 and f64 0.46.
 
 ## Observed behaviour of the ported method (not changed yet)
 * Splits are driven by the perturbation, not by phase transitions. A perturbation of 1.5 is

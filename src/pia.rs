@@ -371,8 +371,7 @@ impl<'a> Solver<'a> {
             }
         }
         let mut ps_sum = 0.0;
-        for s in 0..n {
-            let a = &acc[s];
+        for (s, a) in acc.iter().enumerate() {
             if a[0] == 0.0 {
                 self.pos[s] = self.orig_pos[s];
                 // colour keeps its previous value (Pyxeled behaves the same, see PORTING.md)

@@ -75,7 +75,7 @@ No end state. Once the planned phases are done, work repeats this loop. Each tur
 3. Build, verify, and tick each task only when its check passes.
 
 **Maintenance turn** (per release)
-- [ ] Dependencies reviewed and upgraded where needed. Done when: `Cargo.lock` updated, `cargo test` and `cargo clippy` clean.
-- [ ] Parity still holds (A4, B1). Done when: `bench/parity.py` compat f64 ΔE vs Pyxeled < 1.
-- [ ] Docs match reality. Done when: no Decided row contradicts the code, `ARCHITECTURE.md` or `docs/PORTING.md`.
-- [ ] Stale rows closed or reopened. Done when: no TBD, Inspect or Question row older than one cycle.
+- [x] Dependencies reviewed and upgraded where needed. Done when: `Cargo.lock` updated, `cargo test` and `cargo clippy` clean. (2026-11-15: crc32fast, itoa, syn patch bumps; 3 tests pass, 0 clippy warnings.)
+- [x] Parity still holds (A4, B1). Done when: `bench/parity.py` compat f64 ΔE vs Pyxeled < 1. (2026-11-15: f64 0.46, f32 1.60, 97 % / 94 % within ΔE 5; f32 output byte-identical to the pre-maintenance build.)
+- [x] Docs match reality. Done when: no Decided row contradicts the code, `ARCHITECTURE.md` or `docs/PORTING.md`. (2026-11-15: f64 parity row corrected from 0.49 to 0.46 in `PORTING.md`, `DECISIONS.md` B2 and `ARCHITECTURE.md` H.)
+- [ ] Stale rows closed or reopened. Done when: no TBD, Inspect or Question row older than one cycle. Blocked: E1 needs the C4 verdict, which is the blind rating in `../PIXSOTA/ROADMAP.md`.

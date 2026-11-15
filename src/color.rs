@@ -98,7 +98,7 @@ pub fn cielab_to_srgb(lab: [F; 3]) -> [F; 3] {
     let fz = fy - lab[2] / 200.0;
     let (x, y, z) = (lab_finv(fx) * XN, lab_finv(fy) * YN, lab_finv(fz) * ZN);
     let r = 3.240_481 * x - 1.537_151 * y - 0.498_536 * z;
-    let g = -0.969_255 * x + 1.875_990 * y + 0.041_556 * z;
+    let g = -0.969_255 * x + 1.875_99 * y + 0.041_556 * z;
     let b = 0.055_647 * x - 0.204_041 * y + 1.057_311 * z;
     [r, g, b].map(|c| linear_to_srgb(c.max(0.0)))
 }

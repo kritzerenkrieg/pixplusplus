@@ -94,7 +94,7 @@ No numeric targets (D3): quality is judged by the blind rating, and cost is repo
 | Attribute | Measured | How checked |
 |---|---|---|
 | Palette limit | Never exceeds `-k` | `cargo test respects_hard_palette_limit_and_finds_regions` |
-| Parity (compat, f64) | ΔE vs Pyxeled 0.49, 97 % of pixels within ΔE 5 | `bench/parity.py`, `docs/PORTING.md` |
+| Parity (compat, f64) | ΔE vs Pyxeled 0.46, 97 % of pixels within ΔE 5 | `bench/parity.py`, `docs/PORTING.md` |
 | Solve time, hunter, 8 threads | 128×80: 0.9 s · 256×160: 3.4 s · 512×320: 13–15 s | `--stats`, `bench/out/prof/` |
 | Peak RSS, same runs | 56 / 69 / 112 MiB | `--stats` |
 
