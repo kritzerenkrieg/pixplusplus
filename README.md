@@ -13,7 +13,16 @@ cargo build --release
 #   --pyxeled-compat --space cielab   parity mode against Pyxeled
 ```
 
-Input is downscaled to ≤ 4× the output (`--input-factor`).
+PixelOE (Apache-2.0, ported from its torch backend; see `LICENSES/`) is the second method:
+
+```sh
+./target/release/piaru art.png -o out.png -s 128 --method pixeloe          # unquantised
+./target/release/piaru art.png -o out.png -s 128 --method pixeloe -k 16    # k-means + dither
+#   --oe-thickness 3  --oe-mode contrast|k-centroid|lanczos|nearest|bilinear|...
+#   --oe-sharpen unsharp|laplacian  --oe-dither ordered|error-diffusion|none  --oe-no-match
+```
+
+Input is downscaled to ≤ 4× the output (`--input-factor`); under PixelOE it is resized to exactly that, and the factor is the pixel size (G7).
 
 ## Parity check
 ```sh

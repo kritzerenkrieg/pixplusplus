@@ -79,7 +79,7 @@ Phases A to C were built before DLAD was adopted, so their B and C rows are stil
 - [x] Downscale modes (G2): contrast-based, k-centroid, Lanczos and the conventional modes. Done when: each matches Python within the G5 bound. (2026-11-17: Lanczos, nearest, nearest-exact, area bit-exact; contrast 6.3e-7, bilinear 6e-8, bicubic 1.2e-7; k-centroid exact on 104/120 patches, the 16 ties follow G6.)
 - [x] Sharpen (G2): Laplacian and unsharp. Done when: matches Python within the G5 bound. (2026-11-17: unsharp 1.8e-7, Laplacian 4.2e-7.)
 - [x] Colour step (G2): k-means palette, colour transfer, dithering (`torch/color.py`). Done when: matches Python within the G5 bound. (2026-11-17: Gaussian kernels bit-exact via f16 rounding; wavelet blur 1.8e-7, match_color 1.8e-6; k-means palette, quantise, ordered and error-diffusion dither 1.2e-7. Weighted/repeat k-means are checked end to end in the pipeline task.)
-- [ ] Pipeline and CLI (G4): `piaru --method pixeloe` with PixelOE's options and the existing `--stats` shape. Done when: `cargo test`, `cargo clippy` pass and the smoke run works with `--method pixeloe`.
+- [x] Pipeline and CLI (G4): `piaru --method pixeloe` with PixelOE's options and the existing `--stats` shape. Done when: `cargo test`, `cargo clippy` pass and the smoke run works with `--method pixeloe`. (2026-11-18: 17 upstream configs within 2.4e-6; flags per G7–G9; smoke 128×80 in 1.2 s, 56 MiB; PIA output byte-identical.)
 - [ ] Parity check (G3, G5): a `bench/` script runs both on the test images. Done when: mean ΔE is under the G5 bound on every image, results in `docs/PORTING.md`, and the 512 peak memory and time are recorded next to the torch numbers.
 
 ## Cycle: feature and maintenance
