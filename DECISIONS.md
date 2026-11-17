@@ -12,7 +12,7 @@ Source of truth: overrules `ARCHITECTURE.md` and `ROADMAP.md`. A code is the roa
 
 - **Methods (E8):** base PIA (default), PIA + importance map (`--importance FILE|auto`), PixelOE (`--method pixeloe`, to be ported).
 - **Next work:** cut the edge weight (E1), format once (E4), `--importance auto` (E7), then the PixelOE port (Phase G, G1–G4).
-- **Open:** G5, the parity bound, which is proposed after the first port stages are measured.
+- **Open:** nothing.
 - **Not now:** GUI (E2), palette per material (E3). PIA solver stays as is (E5).
 
 | Code | Topic | Status | Decision / Question |
@@ -49,4 +49,4 @@ Source of truth: overrules `ARCHITECTURE.md` and `ROADMAP.md`. A code is the roa
 | G2 | Port scope | Decided | Everything, in one phase: outline expansion, all downscale modes, sharpen, colour step (k-means and colour transfer) and dithering. User choice. |
 | G3 | Parity check | Decided | Mean Oklab ΔE against `pixeloe.torch` output on the test images, under a fixed bound, like A4. The bound is G5. User choice. |
 | G4 | Interface | Decided | Same binary: a library module plus `piaru --method pixeloe`. PIA stays the default, so existing commands are unchanged; `--stats` keeps its shape. User choice. |
-| G5 | Parity bound | Inspect | Port the first stages, measure ΔE vs `pixeloe.torch` (f32 and float-order noise), then propose the bound. |
+| G5 | Parity bound | Decided | Final output vs `pixeloe.torch`, per image at 128 and 512: mean Oklab ΔE ≤ 0.5 (×100 units, as `bench/parity.py`) and ≥ 99 % of pixels identical after 8-bit rounding. Per-stage unit tests: max abs diff ≤ 1e-5 on 0..1 data (1e-3 on Lab's 0..100). Discrete steps (k-means, dithering) are judged by the final-output bound. User choice. |
