@@ -84,8 +84,18 @@ fn pad_replicate(img: &Img, top: usize, bottom: usize, left: usize, right: usize
 pub fn pixelize(img: &Img, o: &Options) -> Img {
     let ps = o.pixel_size;
     let (mut out_h, mut out_w) = (img.h / ps, img.w / ps);
-    let pad_h = ps - if img.h % ps == 0 { ps } else { img.h % ps };
-    let pad_w = ps - if img.w % ps == 0 { ps } else { img.w % ps };
+    let pad_h = ps
+        - if img.h.is_multiple_of(ps) {
+            ps
+        } else {
+            img.h % ps
+        };
+    let pad_w = ps
+        - if img.w.is_multiple_of(ps) {
+            ps
+        } else {
+            img.w % ps
+        };
     let padded;
     let img = if pad_h > 0 || pad_w > 0 {
         padded = pad_replicate(
