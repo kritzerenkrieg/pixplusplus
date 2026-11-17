@@ -1,9 +1,11 @@
 //! PIARU — Pixelated Image Abstraction in Rust.
 pub mod color;
 pub mod pia;
+pub mod saliency;
 
 pub use color::{Space, F};
 pub use pia::{run, Input, Output, Params, Stats};
+pub use saliency::spectral_residual;
 
 /// Peak resident set size of this process in KiB (Linux /proc), if available.
 pub fn peak_rss_kib() -> Option<u64> {

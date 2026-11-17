@@ -41,6 +41,7 @@ Turns concept art into pixel art with a hard palette limit, using Pixelated Imag
 | `src/main.rs` | Argument parsing, image I/O, input downscale (B3), stats JSON | lib | Output files |
 | `src/pia.rs` | Solver: superpixel refinement, MCDA association and palette refinement, splits, final merge (B4) | color, rayon | `Params`, `Output`, `Stats` |
 | `src/color.rs` | sRGB ↔ Oklab ×100 / CIELAB, distance | none | `Space`, `F` (B2) |
+| `src/saliency.rs` | Spectral-residual saliency for `--importance auto`, matching Pillow's rounding (E7) | none | `spectral_residual` |
 | `src/lib.rs` | Public API re-exports, peak RSS | pia, color | none |
 | `bench/parity.py`, `bench/metrics.py` | Pyxeled parity check against the reference output | CLI release build, `refs/` | nothing |
 

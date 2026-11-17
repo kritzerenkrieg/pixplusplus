@@ -1,6 +1,6 @@
 use clap::Parser;
 use image::{imageops::FilterType, GrayImage, RgbImage};
-use piaru::{peak_rss_kib, run, Input, Params, Space, F};
+use piaru::{peak_rss_kib, run, spectral_residual, Input, Params, Space, F};
 use std::path::PathBuf;
 use std::time::Instant;
 
@@ -27,7 +27,8 @@ struct Cli {
     input_factor: f64,
     #[arg(long, value_enum, default_value_t = SpaceArg::Oklab)]
     space: SpaceArg,
-    /// Grayscale importance map (white = more palette mass). Resized to the input.
+    /// Grayscale importance map (white = more palette mass), resized to the input; or `auto` for
+    /// spectral-residual saliency computed from the input (E7).
     #[arg(long)]
     importance: Option<PathBuf>,
     #[arg(long, default_value_t = 1.1)]
@@ -107,11 +108,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
     let (w, h) = img.dimensions();
     let rgb: Vec<[F; 3]> = img.pixels().map(|p| p.0.map(|v| v as F / 255.0)).collect();
-    let importance = cli
-        .importance
-        .as_ref()
-        .map(|p| load_gray(p, w, h))
-        .transpose()?;
+    let importance = match cli.importance.as_ref() {
+        None => None,
+        Some(p) if p.as_os_str() == "auto" => {
+            let rgb8: Vec<[u8; 3]> = img.pixels().map(|p| p.0).collect();
+            let map = spectral_residual(&rgb8, w as usize, h as usize);
+            Some(map.iter().map(|&v| v as F / 255.0).collect::<Vec<F>>())
+        }
+        Some(p) => Some(load_gray(p, w, h)?),
+    };
 
     let mut p = Params::new(ow, oh, cli.colors);
     p.space = match cli.space {
