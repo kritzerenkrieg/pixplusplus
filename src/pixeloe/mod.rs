@@ -6,6 +6,7 @@
 //! checked against reference dumps of the Python code (`bench/pixeloe_ref.py`,
 //! `tests/fixtures/pixeloe/`).
 
+pub mod downscale;
 pub mod lab;
 pub mod morph;
 pub mod outline;

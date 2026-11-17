@@ -48,3 +48,13 @@ is the f32 row. Re-measured 2026-11-15: f32 1.60 and f64 0.46.
   already above ε_cluster = 0.25, and convergence is a *sum* threshold, so K doubles at every
   early temperature step.
 * The palette is under-used: at K = 16, typically only 9–13 entries win any superpixel.
+
+## PixelOE port (Phase G)
+`src/pixeloe/` ports the torch backend of PixelOE 1.0.0 (`refs/PixelOE`, commit 7ce444b; Lab
+via kornia 0.9.2). Each stage is checked against dumps from `bench/pixeloe_ref.py`
+(`tests/fixtures/pixeloe/`), within 1e-5 on 0..1 data (G5). Divergences from upstream:
+
+1. **k-centroid ties (G6).** When a patch's 2-means splits evenly, both centroids have the same
+   total squared distance and torch's pick depends on its float summation order. PIARU gives a
+   tie (relative gap < 1e-5) to the first centroid, the one started from the patch maximum.
+   On the 48×40 test image, 16 of 120 patches tie; the other 104 match exactly.
