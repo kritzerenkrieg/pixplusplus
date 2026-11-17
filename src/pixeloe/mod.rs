@@ -6,6 +6,7 @@
 //! checked against reference dumps of the Python code (`bench/pixeloe_ref.py`,
 //! `tests/fixtures/pixeloe/`).
 
+pub mod color;
 pub mod downscale;
 pub mod lab;
 pub mod morph;
@@ -98,12 +99,13 @@ pub(crate) mod fixtures {
             .collect()
     }
 
-    /// A `[1, C, H, W]` or `[H, W]` array as an image.
+    /// A `[1, C, H, W]`, `[1, H, W]` or `[H, W]` array as an image.
     pub fn img(name: &str) -> Img {
         let s = shape(name);
         let (c, h, w) = match s.as_slice() {
             [1, c, h, w] => (*c, *h, *w),
             [h, w] => (1, *h, *w),
+            [1, h, w] => (1, *h, *w),
             _ => panic!("unexpected shape {s:?} for {name}"),
         };
         Img::from_vec(c, h, w, raw(name))
