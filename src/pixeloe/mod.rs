@@ -8,6 +8,7 @@
 
 pub mod lab;
 pub mod morph;
+pub mod outline;
 
 /// A planar float image: `data[(c * h + y) * w + x]`.
 #[derive(Clone, Debug, PartialEq)]
