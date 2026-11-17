@@ -73,7 +73,7 @@ Phases A to C were built before DLAD was adopted, so their B and C rows are stil
 **Out of scope:** PIA solver changes (E5).
 **Exit:** `piaru --method pixeloe` covers every PixelOE stage, and its parity check passes the G5 bound.
 
-- [ ] Building blocks (G1, G2): Oklab/Lab conversions and the min/max/median filters from `pixeloe/torch/{lab,minmax,utils}.py`. Done when: unit tests compare against values dumped from the Python functions.
+- [x] Building blocks (G1, G2): kornia CIELAB conversions, the soft circle kernels, erode/dilate and the local median/min/max stat from `pixeloe/torch/{lab,minmax,outline}.py`. Done when: unit tests compare against values dumped from the Python functions. (2026-11-17: references from `bench/pixeloe_ref.py` on the ASUS, torch 2.15.0, kornia 0.9.2, pixeloe 1.0.0. Kernels, erode and dilate bit-exact; Lab within 6.1e-5 (L 0..100); Lab→RGB within 2.3e-6; local stats within 1.2e-7.)
 - [ ] Outline expansion and edge-weight map (G2): `torch/outline.py`. Done when: the expanded image and weight map match Python on 2 test images, mean ΔE measured.
 - [ ] Measure and propose the parity bound (G3, G5). Done when: a G5 proposal with measured numbers is in `DECISIONS.md` for the user.
 - [ ] Downscale modes (G2): contrast-based, k-centroid, Lanczos and the conventional modes. Done when: each matches Python within the G5 bound.

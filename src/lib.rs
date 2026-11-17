@@ -1,6 +1,7 @@
 //! PIARU — Pixelated Image Abstraction in Rust.
 pub mod color;
 pub mod pia;
+pub mod pixeloe;
 pub mod saliency;
 
 pub use color::{Space, F};
