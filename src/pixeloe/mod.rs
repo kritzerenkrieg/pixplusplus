@@ -10,6 +10,7 @@ pub mod downscale;
 pub mod lab;
 pub mod morph;
 pub mod outline;
+pub mod sharpen;
 
 /// A planar float image: `data[(c * h + y) * w + x]`.
 #[derive(Clone, Debug, PartialEq)]
