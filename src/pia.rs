@@ -43,8 +43,6 @@ pub struct Params {
     pub max_iters: usize,
     /// Importance map: p(s) ∝ floor + mean importance of the pixels in s.
     pub importance_floor: F,
-    /// EXPERIMENTAL weight-in-cost: colour term × (1 + λ·edge). Only used if an edge map is given.
-    pub edge_lambda: F,
     /// Reproduce Pyxeled's quirks (corner-anchored grid, perturb bug, no final merge).
     pub pyxeled_compat: bool,
 }
@@ -68,7 +66,6 @@ impl Params {
             saturation: 1.1,
             max_iters: 5000,
             importance_floor: 0.1,
-            edge_lambda: 0.5,
             pyxeled_compat: false,
         }
     }
@@ -81,8 +78,6 @@ pub struct Input<'a> {
     pub rgb: &'a [[F; 3]],
     /// Optional importance map, 0..1 per input pixel.
     pub importance: Option<&'a [F]>,
-    /// Optional edge weight map, 0..1 per input pixel (experimental weight-in-cost).
-    pub edge: Option<&'a [F]>,
 }
 
 #[derive(Clone, Debug, Default, serde::Serialize)]
@@ -143,7 +138,6 @@ struct Solver<'a> {
     h_in: usize,
     lab: Vec<[F; 3]>,
     importance: Option<&'a [F]>,
-    edge: Option<&'a [F]>,
     n: usize,
     spatial_w: F,
     // superpixel state (SoA)
@@ -262,7 +256,6 @@ impl<'a> Solver<'a> {
             h_in,
             lab,
             importance: input.importance,
-            edge: input.edge,
             n,
             spatial_w: p.m * ((n as F) / (m_px as F)).sqrt(),
             orig_pos: pos.clone(),
@@ -285,7 +278,6 @@ impl<'a> Solver<'a> {
         let (w_in, h_in) = (self.w_in, self.h_in);
         let (w_out, h_out) = (self.p.out_w, self.p.out_h);
         let off = if self.p.pyxeled_compat { 0.0 } else { 0.5 };
-        let lambda = self.p.edge_lambda;
 
         // --- 1a+1b. assignment fused with accumulation, parallel over bands of input rows.
         // A band's pixels can only land in superpixel rows [gr(y0)-1, gr(y1)+1], so each band
@@ -297,7 +289,6 @@ impl<'a> Solver<'a> {
             let lab = &self.lab;
             let pos = &self.pos;
             let pal = &self.pal_color;
-            let edge = self.edge;
             let imp = self.importance;
             let sw = self.spatial_w;
             (0..h_in.div_ceil(rows_per_band))
@@ -318,7 +309,6 @@ impl<'a> Solver<'a> {
                             let fx = x as F + off;
                             let i = y * w_in + x;
                             let col = &lab[i];
-                            let cmul = edge.map_or(1.0, |e| 1.0 + lambda * e[i]);
                             let mut best = F::INFINITY;
                             let mut best_s = 0usize;
                             for dc in -1isize..=1 {
@@ -335,7 +325,7 @@ impl<'a> Solver<'a> {
                                     let ps = &pos[s];
                                     let dx = ps[0] - fx;
                                     let dy = ps[1] - fy;
-                                    let cost = cmul * dist(col, &pal[s]) + sw * (dx * dx + dy * dy).sqrt();
+                                    let cost = dist(col, &pal[s]) + sw * (dx * dx + dy * dy).sqrt();
                                     if cost < best {
                                         best = cost;
                                         best_s = s;
@@ -736,7 +726,7 @@ mod tests {
     fn respects_hard_palette_limit_and_finds_regions() {
         let (w, h) = (64, 48);
         let rgb = synthetic(w, h);
-        let input = Input { width: w, height: h, rgb: &rgb, importance: None, edge: None };
+        let input = Input { width: w, height: h, rgb: &rgb, importance: None };
         let mut p = Params::new(16, 12, 4);
         p.saturation = 1.0;
         let out = run(&input, &p);

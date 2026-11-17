@@ -8,7 +8,6 @@ mass-constrained deterministic annealing in Oklab.
 cargo build --release
 ./target/release/piaru art.png -o out.png -s 256 -k 16 --preview 4
 #   --importance map.png   grayscale; brighter areas get more palette mass
-#   --edge-weight map.png  EXPERIMENTAL weight-in-cost (off unless given)
 #   --stats run.json       timings / iterations / peak RSS
 #   --pyxeled-compat --space cielab   parity mode against Pyxeled
 ```

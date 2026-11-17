@@ -64,7 +64,7 @@ Phases A to C were built before DLAD was adopted, so their B and C rows are stil
 
 - [ ] Format once (E4): `cargo fmt` in a formatting-only commit, and add `cargo fmt --check` to the verification commands in `AGENTS.md`. Done when: `cargo fmt --check` is clean and `cargo test` passes. Each feature that is kept may get its own letter.
 
-- [ ] Cut the edge weight (E1, C2): remove `--edge-weight`, its cost term, tests and docs. Done when: `cargo test` and `cargo clippy` pass, `--edge-weight` is rejected, and `bench/parity.py` compat output is unchanged (A4, B1).
+- [x] Cut the edge weight (E1, C2): remove `--edge-weight`, its cost term, tests and docs. Done when: `cargo test` and `cargo clippy` pass, `--edge-weight` is rejected, and `bench/parity.py` compat output is unchanged (A4, B1). (2026-11-17: 3 tests pass, 0 clippy warnings, flag rejected; compat, default, smoke and importance outputs byte-identical to before; parity f32 ΔE 1.60.)
 - [ ] [P] Automatic importance map (E7, C1): `--importance auto` computes spectral-residual saliency in Rust. Done when: a test shows the map matches the harness's `spectral_residual` on a fixed image within 1/255 mean, and `cargo test` and `cargo clippy` pass.
 
 ## Phase G: PixelOE in Rust

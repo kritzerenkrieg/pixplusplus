@@ -30,11 +30,6 @@ struct Cli {
     /// Grayscale importance map (white = more palette mass). Resized to the input.
     #[arg(long)]
     importance: Option<PathBuf>,
-    /// EXPERIMENTAL: grayscale edge-weight map used in the assignment cost. Off unless given.
-    #[arg(long)]
-    edge_weight: Option<PathBuf>,
-    #[arg(long, default_value_t = 0.5)]
-    edge_lambda: F,
     #[arg(long, default_value_t = 1.1)]
     saturation: F,
     #[arg(long, default_value_t = 35.0)]
@@ -102,7 +97,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let (w, h) = img.dimensions();
     let rgb: Vec<[F; 3]> = img.pixels().map(|p| p.0.map(|v| v as F / 255.0)).collect();
     let importance = cli.importance.as_ref().map(|p| load_gray(p, w, h)).transpose()?;
-    let edge = cli.edge_weight.as_ref().map(|p| load_gray(p, w, h)).transpose()?;
 
     let mut p = Params::new(ow, oh, cli.colors);
     p.space = match cli.space {
@@ -113,7 +107,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     p.t0 = cli.t0;
     p.m = cli.m;
     p.max_iters = cli.max_iters;
-    p.edge_lambda = cli.edge_lambda;
     p.pyxeled_compat = cli.pyxeled_compat;
 
     let input = Input {
@@ -121,7 +114,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         height: h as usize,
         rgb: &rgb,
         importance: importance.as_deref(),
-        edge: edge.as_deref(),
     };
     let out = run(&input, &p);
 
