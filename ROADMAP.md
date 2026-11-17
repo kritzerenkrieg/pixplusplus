@@ -48,22 +48,39 @@ Phases A to C were built before DLAD was adopted, so their B and C rows are stil
 
 ## Phase D: Benchmark run and report
 
-**Goal:** objective and blind-rated numbers for all four columns, reported before any feature work (D1).
-**Exit:** report in `../PIXSOTA/docs/BENCHMARK.md` with the C4 verdict.
+**Goal:** objective numbers for all four columns, reported before any feature work (D1).
+**Exit:** objective table in `../PIXSOTA/docs/BENCHMARK.md`. The blind rating and its verdict (F27, formerly C4) are research work and belong to `../PIXSOTA/ROADMAP.md`, not to this repo.
 **Out of scope:** solver changes, tuning, new features.
-**Blocked on:** nothing. D2, C3 and D4 are Decided. The report and its remaining task are tracked in `../PIXSOTA/ROADMAP.md`.
+**Status:** done.
 
 - [x] Prepare the remote run (`../PIXSOTA/bench/remote_wsl.sh`): script or notebook that builds the release binary and venv and runs `run_bench.py` (D2, A5). Done when: it runs the 2-image smoke config remotely and returns `results.csv`.
 - [x] Full run (C3, D2). Done when: the results table has 96 rows (8 images × 3 sizes × 4 methods), copied back locally. Archived in `../PIXSOTA/data/phase-d/results.csv`.
 - [x] Objective table (C3). Done when: `summarize.py` output is in `../PIXSOTA/docs/BENCHMARK.md`.
-- [ ] Blind rating (C4, D4). Moved to `../PIXSOTA/ROADMAP.md`. Phase D closes when that verdict reaches `../PIXSOTA/docs/BENCHMARK.md`.
 
 ## Phase E: Post-benchmark features
 
-**Goal:** chosen after Phase D.
-**Blocked on:** E1–E4 (TBD). Each feature that is kept may get its own letter.
+**Goal:** three methods (E8): base PIA, PIA + importance map, and PixelOE (Phase G). Edge weight cut (E1).
+**Not now:** GUI (E2), palette per material (E3).
 
-- [ ] Act on the weight-in-cost verdict (C4, E1). Done when: code cut, or kept opt-in with the verdict cited in `../PIXSOTA/docs/BENCHMARK.md`.
+- [ ] Format once (E4): `cargo fmt` in a formatting-only commit, and add `cargo fmt --check` to the verification commands in `AGENTS.md`. Done when: `cargo fmt --check` is clean and `cargo test` passes. Each feature that is kept may get its own letter.
+
+- [ ] Cut the edge weight (E1, C2): remove `--edge-weight`, its cost term, tests and docs. Done when: `cargo test` and `cargo clippy` pass, `--edge-weight` is rejected, and `bench/parity.py` compat output is unchanged (A4, B1).
+- [ ] [P] Automatic importance map (E7, C1): `--importance auto` computes spectral-residual saliency in Rust. Done when: a test shows the map matches the harness's `spectral_residual` on a fixed image within 1/255 mean, and `cargo test` and `cargo clippy` pass.
+
+## Phase G: PixelOE in Rust
+
+**Goal:** a Rust port of PixelOE that matches the Python original and is much cheaper to run (G1).
+**Out of scope:** PIA solver changes (E5).
+**Exit:** `piaru --method pixeloe` covers every PixelOE stage, and its parity check passes the G5 bound.
+
+- [ ] Building blocks (G1, G2): Oklab/Lab conversions and the min/max/median filters from `pixeloe/torch/{lab,minmax,utils}.py`. Done when: unit tests compare against values dumped from the Python functions.
+- [ ] Outline expansion and edge-weight map (G2): `torch/outline.py`. Done when: the expanded image and weight map match Python on 2 test images, mean ΔE measured.
+- [ ] Measure and propose the parity bound (G3, G5). Done when: a G5 proposal with measured numbers is in `DECISIONS.md` for the user.
+- [ ] Downscale modes (G2): contrast-based, k-centroid, Lanczos and the conventional modes. Done when: each matches Python within the G5 bound.
+- [ ] Sharpen (G2): Laplacian and unsharp. Done when: matches Python within the G5 bound.
+- [ ] Colour step (G2): k-means palette, colour transfer, dithering (`torch/color.py`). Done when: matches Python within the G5 bound.
+- [ ] Pipeline and CLI (G4): `piaru --method pixeloe` with PixelOE's options and the existing `--stats` shape. Done when: `cargo test`, `cargo clippy` pass and the smoke run works with `--method pixeloe`.
+- [ ] Parity check (G3, G5): a `bench/` script runs both on the test images. Done when: mean ΔE is under the G5 bound on every image, results in `docs/PORTING.md`, and the 512 peak memory and time are recorded next to the torch numbers.
 
 ## Cycle: feature and maintenance
 
@@ -78,4 +95,4 @@ No end state. Once the planned phases are done, work repeats this loop. Each tur
 - [x] Dependencies reviewed and upgraded where needed. Done when: `Cargo.lock` updated, `cargo test` and `cargo clippy` clean. (2026-11-15: crc32fast, itoa, syn patch bumps; 3 tests pass, 0 clippy warnings.)
 - [x] Parity still holds (A4, B1). Done when: `bench/parity.py` compat f64 ΔE vs Pyxeled < 1. (2026-11-15: f64 0.46, f32 1.60, 97 % / 94 % within ΔE 5; f32 output byte-identical to the pre-maintenance build.)
 - [x] Docs match reality. Done when: no Decided row contradicts the code, `ARCHITECTURE.md` or `docs/PORTING.md`. (2026-11-15: f64 parity row corrected from 0.49 to 0.46 in `PORTING.md`, `DECISIONS.md` B2 and `ARCHITECTURE.md` H.)
-- [ ] Stale rows closed or reopened. Done when: no TBD, Inspect or Question row older than one cycle. Blocked: E1 needs the C4 verdict, which is the blind rating in `../PIXSOTA/ROADMAP.md`.
+- [ ] Stale rows closed or reopened. Done when: no TBD, Inspect or Question row older than one cycle. (2026-11-17: E1–E4 Decided; only G5 is open, and it is Inspect by design.)

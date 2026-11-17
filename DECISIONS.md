@@ -4,9 +4,16 @@ Source of truth: overrules `ARCHITECTURE.md` and `ROADMAP.md`. A code is the roa
 
 **Status:** **Decided**: binding, with the reason in a few words. **Inspect**: research or a spike first. **TBD**: ask, don't guess. **Question**: not yet read by the human, so treat it as TBD.
 
-**Phases:** A Foundations (done), B Core solver and parity (done), C Controls and harness (done), D Benchmark run and report, E Post-benchmark features.
+**Phases:** A Foundations (done), B Core solver and parity (done), C Controls and harness (done), D Benchmark run and report (done), E Post-benchmark features, G PixelOE in Rust. Letter F is skipped so PIARU codes never collide with PIXSOTA's `F` rows.
 
-**Scope:** this file covers the implementation only. The research project (paper, literature review, benchmark harness, human study) lives in the sibling `../PIXSOTA` checkout with its own `DECISIONS.md` (F rows). Rows `D1`–`D4` and `C3`/`C4` below are inputs to that project and must stay here.
+**Scope:** this file covers the implementation only. The research project (paper, literature review, benchmark harness, human study) lives in the sibling `../PIXSOTA` checkout with its own `DECISIONS.md` (F rows). The research rows `C3`, `C4` and `D1`–`D4` moved there as `F26`–`F31` (2026-11-17); their stubs below keep the codes from being reused.
+
+## Current state (2026-11-17)
+
+- **Methods (E8):** base PIA (default), PIA + importance map (`--importance FILE|auto`), PixelOE (`--method pixeloe`, to be ported).
+- **Next work:** cut the edge weight (E1), format once (E4), `--importance auto` (E7), then the PixelOE port (Phase G, G1–G4).
+- **Open:** G5, the parity bound, which is proposed after the first port stages are measured.
+- **Not now:** GUI (E2), palette per material (E3). PIA solver stays as is (E5).
 
 | Code | Topic | Status | Decision / Question |
 |---|---|---|---|
@@ -23,14 +30,23 @@ Source of truth: overrules `ARCHITECTURE.md` and `ROADMAP.md`. A code is the roa
 | B6 | Split behaviour | Decided | Leave as ported (splits come from the 1.5 perturbation, so K doubles each early T step). Any fix would be a solver change, which D1 rules out before the benchmark. Revisit as a new row after Phase D. Delegated to agent. |
 | B7 | Palette under-use | Decided | Accept for now (at K = 16 only 9–13 entries are used). Same reason as B6. The benchmark's `colours used` column records it. Delegated to agent. |
 | C1 | Importance map | Decided | Keep p(s) ∝ 0.1 + mean importance of the pixels in s (`importance_floor`). It runs only as the `pia_imp` ablation, and changing it would move benchmark numbers (D1). Delegated to agent. |
-| C2 | Weight-in-cost (edge map) | Decided | Experimental, off unless `--edge-weight` is given. Colour term × (1 + 0.5·edge). Spec. |
-| C3 | Benchmark design | Decided | 4 columns: PixelOE + Oklab k-means, pia, pia_imp, pia_edge. 8 images × 128/256/512, K = 16, saturation 1.0. pia_imp uses spectral-residual saliency instead of a hand-painted map. Accepted by user. |
-| C4 | Weight-in-cost verdict | Decided | Keep pia_edge only if it wins ≥ 60 % of non-tied blind (trial, rater) pairs and its mean score is ≥ 0.5 higher. Otherwise cut it (verdict computed by `../PIXSOTA/bench/score.py`). Spec. |
-| D1 | Benchmark first | Decided | Report benchmark numbers before any feature work. Spec. |
-| D2 | Benchmark host | Decided | `asus` over ssh, inside WSL (kali, 12 threads, 15 GB), via `../PIXSOTA/bench/remote_wsl.sh`. User choice. |
-| D3 | Quality and speed targets | Decided | No numeric targets. Quality is judged by the user's blind rating. Cost is reported as peak memory (RSS) and inference time (solve ms) per size. User choice. |
-| D4 | Raters | Decided | The user is the only rater. User choice. |
-| E1 | Weight-in-cost after verdict | TBD | After C4: cut the code, or keep it as an opt-in flag? |
-| E2 | GUI (egui) | TBD | Wanted? In what scope? |
-| E3 | Palette per material | TBD | Wanted? In what scope? |
-| E4 | rustfmt | TBD | `cargo fmt --check` reports diffs. Format once and enforce, or leave? |
+| C2 | Weight-in-cost (edge map) | Decided | Experimental, off unless `--edge-weight` is given. Colour term × (1 + 0.5·edge). Spec. Superseded by E1 (cut). |
+| C3 | Benchmark design | Decided | Moved to `../PIXSOTA/DECISIONS.md` as F26 (research). Code kept so old citations resolve. |
+| C4 | Weight-in-cost verdict | Decided | Moved to `../PIXSOTA/DECISIONS.md` as F27 (research). Code kept so old citations resolve. |
+| D1 | Benchmark first | Decided | Moved to `../PIXSOTA/DECISIONS.md` as F28 (research). Code kept so old citations resolve. |
+| D2 | Benchmark host | Decided | Moved to `../PIXSOTA/DECISIONS.md` as F29 (research). Code kept so old citations resolve. |
+| D3 | Quality and speed targets | Decided | Moved to `../PIXSOTA/DECISIONS.md` as F30 (research). Code kept so old citations resolve. |
+| D4 | Raters | Decided | Moved to `../PIXSOTA/DECISIONS.md` as F31 (research). Code kept so old citations resolve. |
+| E1 | Edge weight | Decided | Cut: remove `--edge-weight` and its cost term (C2). Judged bad on the 2026-11-17 showcase, no objective gain over PIA. User choice. |
+| E2 | GUI (egui) | Decided | Not now. Raise again as a new row if wanted. User choice. |
+| E3 | Palette per material | Decided | Not now. Raise again as a new row if wanted. User choice. |
+| E4 | rustfmt | Decided | Format the whole crate once in its own commit, then enforce `cargo fmt --check`. User choice. |
+| E5 | PIA solver | Decided | Good as is. No solver changes planned; B6 and B7 stay accepted. User choice. |
+| E6 | Importance map | Decided | Keep `--importance` (C1): it has good cases on the showcase. User choice. |
+| E7 | Automatic importance map | Decided | Port spectral-residual saliency (Hou & Zhang 2007) into PIARU as `--importance auto`, matching the Python `spectral_residual` that produced the showcase maps. A map file still works. User choice. |
+| E8 | Method line-up | Decided | Three methods: base PIA (the default), PIA with importance map (E6, E7), and PixelOE (G1, `--method pixeloe`). The edge-weight variant is gone (E1). User choice. |
+| G1 | PixelOE in Rust | Decided | Port PixelOE (Apache-2.0, vendored at `refs/PixelOE` commit 7ce444b) to Rust in this repository: it is good but unoptimised (≈1.5 GB peak at 512 vs ≈0.13 GB for PIA). Keep its licence notice. User choice. |
+| G2 | Port scope | Decided | Everything, in one phase: outline expansion, all downscale modes, sharpen, colour step (k-means and colour transfer) and dithering. User choice. |
+| G3 | Parity check | Decided | Mean Oklab ΔE against `pixeloe.torch` output on the test images, under a fixed bound, like A4. The bound is G5. User choice. |
+| G4 | Interface | Decided | Same binary: a library module plus `piaru --method pixeloe`. PIA stays the default, so existing commands are unchanged; `--stats` keeps its shape. User choice. |
+| G5 | Parity bound | Inspect | Port the first stages, measure ΔE vs `pixeloe.torch` (f32 and float-order noise), then propose the bound. |

@@ -19,7 +19,7 @@ Turns concept art into pixel art with a hard palette limit, using Pixelated Imag
 **Goals**
 - Faithful, fast Rust port of the method, with checked parity against Pyxeled (A4).
 - Optional artist control: importance map (C1); experimental edge weight (C2).
-- A benchmark that decides whether experimental features ship (C3, C4, D1). The harness lives in the sibling `../PIXSOTA` checkout and runs this CLI.
+- A benchmark that decides whether experimental features ship (`../PIXSOTA` F26–F28, formerly C3, C4, D1). The harness lives in the sibling `../PIXSOTA` checkout and runs this CLI.
 
 **Non-goals**
 - GPU or ML methods.
@@ -89,7 +89,7 @@ The benchmark flow (inputs, columns, blind sheet, verdict) lives in `../PIXSOTA`
 
 ## H. Quality targets
 
-No numeric targets (D3): quality is judged by the blind rating, and cost is reported as peak memory and solve time. These are measurements, not commitments.
+No numeric targets (`../PIXSOTA` F30, formerly D3): quality is judged by the blind rating, and cost is reported as peak memory and solve time. These are measurements, not commitments.
 
 | Attribute | Measured | How checked |
 |---|---|---|
