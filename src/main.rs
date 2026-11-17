@@ -69,7 +69,9 @@ fn load_gray(path: &PathBuf, w: u32, h: u32) -> Result<Vec<F>, Box<dyn std::erro
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let cli = Cli::parse();
     if let Some(t) = cli.threads {
-        rayon::ThreadPoolBuilder::new().num_threads(t).build_global()?;
+        rayon::ThreadPoolBuilder::new()
+            .num_threads(t)
+            .build_global()?;
     }
     let t_wall = Instant::now();
     let mut img: RgbImage = image::open(&cli.input)?.to_rgb8();
@@ -80,23 +82,36 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         _ => {
             let s = cli.size as f64;
             if iw >= ih {
-                (cli.size, ((ih as f64 * s / iw as f64).round() as usize).max(1))
+                (
+                    cli.size,
+                    ((ih as f64 * s / iw as f64).round() as usize).max(1),
+                )
             } else {
-                (((iw as f64 * s / ih as f64).round() as usize).max(1), cli.size)
+                (
+                    ((iw as f64 * s / ih as f64).round() as usize).max(1),
+                    cli.size,
+                )
             }
         }
     };
 
     if cli.input_factor > 0.0 {
         let f = cli.input_factor;
-        let (mw, mh) = ((ow as f64 * f).round() as u32, (oh as f64 * f).round() as u32);
+        let (mw, mh) = (
+            (ow as f64 * f).round() as u32,
+            (oh as f64 * f).round() as u32,
+        );
         if iw > mw || ih > mh {
             img = image::imageops::resize(&img, mw, mh, FilterType::Lanczos3);
         }
     }
     let (w, h) = img.dimensions();
     let rgb: Vec<[F; 3]> = img.pixels().map(|p| p.0.map(|v| v as F / 255.0)).collect();
-    let importance = cli.importance.as_ref().map(|p| load_gray(p, w, h)).transpose()?;
+    let importance = cli
+        .importance
+        .as_ref()
+        .map(|p| load_gray(p, w, h))
+        .transpose()?;
 
     let mut p = Params::new(ow, oh, cli.colors);
     p.space = match cli.space {
@@ -120,7 +135,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let png = RgbImage::from_raw(out.width as u32, out.height as u32, out.rgb8()).unwrap();
     png.save(&cli.output)?;
     if let Some(f) = cli.preview {
-        let big = image::imageops::resize(&png, png.width() * f, png.height() * f, FilterType::Nearest);
+        let big =
+            image::imageops::resize(&png, png.width() * f, png.height() * f, FilterType::Nearest);
         big.save(cli.output.with_extension(format!("x{f}.png")))?;
     }
 

@@ -164,7 +164,11 @@ pub fn run(input: &Input, p: &Params) -> Output {
     let mut s = Solver::new(input, p);
     s.tm.setup_ms = ms(t_start);
 
-    let mut stats = Stats { input_w: input.width, input_h: input.height, ..Default::default() };
+    let mut stats = Stats {
+        input_w: input.width,
+        input_h: input.height,
+        ..Default::default()
+    };
     let mut it = 0;
     while s.t > p.t_final {
         if it >= p.max_iters {
@@ -203,12 +207,19 @@ impl<'a> Solver<'a> {
     fn new(input: &Input<'a>, p: &'a Params) -> Self {
         let (w_in, h_in) = (input.width, input.height);
         let (w_out, h_out) = (p.out_w, p.out_h);
-        assert!(w_out >= 1 && h_out >= 1 && w_out <= w_in && h_out <= h_in, "output must not exceed input");
+        assert!(
+            w_out >= 1 && h_out >= 1 && w_out <= w_in && h_out <= h_in,
+            "output must not exceed input"
+        );
         assert!(p.k_max >= 1);
         let m_px = w_in * h_in;
         let n = w_out * h_out;
 
-        let lab: Vec<[F; 3]> = input.rgb.par_iter().map(|&c| p.space.from_srgb(c)).collect();
+        let lab: Vec<[F; 3]> = input
+            .rgb
+            .par_iter()
+            .map(|&c| p.space.from_srgb(c))
+            .collect();
 
         // mean colour + first principal axis (power iteration on the 3×3 covariance)
         let (mean, cov) = mean_cov(&lab);
@@ -218,13 +229,17 @@ impl<'a> Solver<'a> {
             // largest |projection| projects positively.
             let proj = lab
                 .par_iter()
-                .map(|c| (c[0] - mean[0]) * v[0] + (c[1] - mean[1]) * v[1] + (c[2] - mean[2]) * v[2])
+                .map(|c| {
+                    (c[0] - mean[0]) * v[0] + (c[1] - mean[1]) * v[1] + (c[2] - mean[2]) * v[2]
+                })
                 .reduce(|| 0.0, |a: F, b: F| if b.abs() > a.abs() { b } else { a });
             if proj < 0.0 {
                 v = v.map(|x| -x);
             }
         } else {
-            let i = (0..3).max_by(|&a, &b| v[a].abs().total_cmp(&v[b].abs())).unwrap();
+            let i = (0..3)
+                .max_by(|&a, &b| v[a].abs().total_cmp(&v[b].abs()))
+                .unwrap();
             if v[i] < 0.0 {
                 v = v.map(|x| -x);
             }
@@ -239,10 +254,16 @@ impl<'a> Solver<'a> {
                     ((c * w_in / w_out) as F, (r * h_in / h_out) as F)
                 } else {
                     // cell centres, with pixel centres at integer + 0.5
-                    ((c as F + 0.5) * w_in as F / w_out as F, (r as F + 0.5) * h_in as F / h_out as F)
+                    (
+                        (c as F + 0.5) * w_in as F / w_out as F,
+                        (r as F + 0.5) * h_in as F / h_out as F,
+                    )
                 };
                 pos.push([x, y]);
-                let (ix, iy) = ((x.floor() as usize).min(w_in - 1), (y.floor() as usize).min(h_in - 1));
+                let (ix, iy) = (
+                    (x.floor() as usize).min(w_in - 1),
+                    (y.floor() as usize).min(h_in - 1),
+                );
                 orig_color.push(lab[iy * w_in + ix]);
             }
         }
@@ -392,7 +413,9 @@ impl<'a> Solver<'a> {
             .into_par_iter()
             .map(|s| {
                 let (r, c) = ((s / w_out) as isize, (s % w_out) as isize);
-                let inb = |r: isize, c: isize| r >= 0 && c >= 0 && r < h_out as isize && c < w_out as isize;
+                let inb = |r: isize, c: isize| {
+                    r >= 0 && c >= 0 && r < h_out as isize && c < w_out as isize
+                };
                 let mut sx = 0.0;
                 let mut sy = 0.0;
                 let mut cnt = 0.0;
@@ -406,7 +429,10 @@ impl<'a> Solver<'a> {
                 }
                 let me = &pos[s];
                 let np = if cnt > 0.0 {
-                    [lap * sx / cnt + (1.0 - lap) * me[0], lap * sy / cnt + (1.0 - lap) * me[1]]
+                    [
+                        lap * sx / cnt + (1.0 - lap) * me[0],
+                        lap * sy / cnt + (1.0 - lap) * me[1],
+                    ]
                 } else {
                     *me
                 };
@@ -506,14 +532,21 @@ impl<'a> Solver<'a> {
 
         // superpixels take the (pre-refinement) colour of their most probable palette entry
         let palette_now = self.palette.clone();
-        self.pal_color.par_iter_mut().zip(self.sp_assign.par_iter()).for_each(|(pc, &k)| *pc = palette_now[k as usize]);
+        self.pal_color
+            .par_iter_mut()
+            .zip(self.sp_assign.par_iter())
+            .for_each(|(pc, &k)| *pc = palette_now[k as usize]);
 
         let mut change = 0.0;
         for k in 0..kn {
             let mass = acc[k * 4];
             self.probs[k] = mass as F;
             if mass > 1e-12 {
-                let nc = [(acc[k * 4 + 1] / mass) as F, (acc[k * 4 + 2] / mass) as F, (acc[k * 4 + 3] / mass) as F];
+                let nc = [
+                    (acc[k * 4 + 1] / mass) as F,
+                    (acc[k * 4 + 2] / mass) as F,
+                    (acc[k * 4 + 3] / mass) as F,
+                ];
                 change += dist(&self.palette[k], &nc);
                 self.palette[k] = nc;
             }
@@ -531,7 +564,9 @@ impl<'a> Solver<'a> {
             if self.k >= k_max {
                 break;
             }
-            let Cluster::Pair(a, b) = self.clusters[i] else { continue };
+            let Cluster::Pair(a, b) = self.clusters[i] else {
+                continue;
+            };
             if dist(&self.palette[a], &self.palette[b]) > self.p.eps_cluster {
                 self.k += 1;
                 let (ca, cb) = (self.palette[a], self.palette[b]);
@@ -566,7 +601,11 @@ impl<'a> Solver<'a> {
             match *c {
                 Cluster::Pair(a, b) => {
                     let (ca, cb) = (self.palette[a], self.palette[b]);
-                    pal.push([(ca[0] + cb[0]) / 2.0, (ca[1] + cb[1]) / 2.0, (ca[2] + cb[2]) / 2.0]);
+                    pal.push([
+                        (ca[0] + cb[0]) / 2.0,
+                        (ca[1] + cb[1]) / 2.0,
+                        (ca[2] + cb[2]) / 2.0,
+                    ]);
                     pr.push(self.probs[a] + self.probs[b]);
                 }
                 Cluster::Single(a) => {
@@ -608,14 +647,24 @@ impl<'a> Solver<'a> {
         };
 
         let sat = self.p.saturation;
-        let palette: Vec<[F; 3]> = palette.iter().map(|c| [c[0], c[1] * sat, c[2] * sat]).collect();
+        let palette: Vec<[F; 3]> = palette
+            .iter()
+            .map(|c| [c[0], c[1] * sat, c[2] * sat])
+            .collect();
         let palette_srgb = palette
             .iter()
             .map(|&c| self.p.space.to_srgb(c).map(|v| (v * 255.0).round() as u8))
             .collect::<Vec<_>>();
         stats.palette_size = palette.len();
         stats.timings = self.tm.clone();
-        Output { width: self.p.out_w, height: self.p.out_h, labels, palette, palette_srgb, stats }
+        Output {
+            width: self.p.out_w,
+            height: self.p.out_h,
+            labels,
+            palette,
+            palette_srgb,
+            stats,
+        }
     }
 
     /// Final assignment only: argmax_k p(c_k)·exp(−‖m_s − c_k‖/T).
@@ -624,20 +673,23 @@ impl<'a> Solver<'a> {
         let probs = &self.probs;
         let col = &self.sp_color;
         let inv_t = 1.0 / self.t;
-        self.sp_assign.par_iter_mut().enumerate().for_each(|(s, out)| {
-            let m = &col[s];
-            // argmax p_k exp(-d_k/T)  ==  argmin d_k/T - ln p_k
-            let mut best = 0;
-            let mut bv = F::INFINITY;
-            for k in 0..palette.len() {
-                let v = dist(m, &palette[k]) * inv_t - probs[k].max(1e-30).ln();
-                if v < bv {
-                    bv = v;
-                    best = k;
+        self.sp_assign
+            .par_iter_mut()
+            .enumerate()
+            .for_each(|(s, out)| {
+                let m = &col[s];
+                // argmax p_k exp(-d_k/T)  ==  argmin d_k/T - ln p_k
+                let mut best = 0;
+                let mut bv = F::INFINITY;
+                for k in 0..palette.len() {
+                    let v = dist(m, &palette[k]) * inv_t - probs[k].max(1e-30).ln();
+                    if v < bv {
+                        bv = v;
+                        best = k;
+                    }
                 }
-            }
-            *out = best as u32;
-        });
+                *out = best as u32;
+            });
     }
 }
 
@@ -652,25 +704,35 @@ fn mean_cov(lab: &[[F; 3]]) -> ([F; 3], [[f64; 3]; 3]) {
     let n = lab.len() as f64;
     let sum = lab
         .par_iter()
-        .fold(|| [0.0f64; 3], |mut a, c| {
-            for i in 0..3 {
-                a[i] += c[i] as f64;
-            }
-            a
-        })
+        .fold(
+            || [0.0f64; 3],
+            |mut a, c| {
+                for i in 0..3 {
+                    a[i] += c[i] as f64;
+                }
+                a
+            },
+        )
         .reduce(|| [0.0; 3], |a, b| [a[0] + b[0], a[1] + b[1], a[2] + b[2]]);
     let mean = sum.map(|v| v / n);
     let cov = lab
         .par_iter()
-        .fold(|| [[0.0f64; 3]; 3], |mut a, c| {
-            let d = [c[0] as f64 - mean[0], c[1] as f64 - mean[1], c[2] as f64 - mean[2]];
-            for i in 0..3 {
-                for j in 0..3 {
-                    a[i][j] += d[i] * d[j];
+        .fold(
+            || [[0.0f64; 3]; 3],
+            |mut a, c| {
+                let d = [
+                    c[0] as f64 - mean[0],
+                    c[1] as f64 - mean[1],
+                    c[2] as f64 - mean[2],
+                ];
+                for i in 0..3 {
+                    for j in 0..3 {
+                        a[i][j] += d[i] * d[j];
+                    }
                 }
-            }
-            a
-        })
+                a
+            },
+        )
         .reduce(
             || [[0.0; 3]; 3],
             |mut a, b| {
@@ -726,7 +788,12 @@ mod tests {
     fn respects_hard_palette_limit_and_finds_regions() {
         let (w, h) = (64, 48);
         let rgb = synthetic(w, h);
-        let input = Input { width: w, height: h, rgb: &rgb, importance: None };
+        let input = Input {
+            width: w,
+            height: h,
+            rgb: &rgb,
+            importance: None,
+        };
         let mut p = Params::new(16, 12, 4);
         p.saturation = 1.0;
         let out = run(&input, &p);
@@ -735,7 +802,11 @@ mod tests {
         let mut used: Vec<u32> = out.labels.clone();
         used.sort();
         used.dedup();
-        assert!(used.len() >= 3, "three flat regions should get three colours, got {}", used.len());
+        assert!(
+            used.len() >= 3,
+            "three flat regions should get three colours, got {}",
+            used.len()
+        );
         assert!(!out.stats.hit_max_iters);
     }
 }
