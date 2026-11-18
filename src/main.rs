@@ -278,6 +278,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             img = image::imageops::resize(&img, mw, mh, FilterType::Lanczos3);
         }
     }
+    img = enlarge_to_cover(img, ow, oh);
     let (w, h) = img.dimensions();
     let rgb: Vec<[F; 3]> = img.pixels().map(|p| p.0.map(|v| v as F / 255.0)).collect();
     let importance = match cli.importance.as_ref() {
@@ -338,6 +339,19 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         std::fs::write(path, serde_json::to_string_pretty(&j)?)?;
     }
     Ok(())
+}
+
+/// I1: PIA needs at least one input pixel per output pixel. A smaller input is enlarged
+/// (Lanczos, aspect kept) just enough to cover the output grid; larger inputs are untouched.
+fn enlarge_to_cover(img: RgbImage, ow: usize, oh: usize) -> RgbImage {
+    let (w, h) = img.dimensions();
+    if w as usize >= ow && h as usize >= oh {
+        return img;
+    }
+    let scale = (ow as f64 / w as f64).max(oh as f64 / h as f64);
+    let nw = ((w as f64 * scale).ceil() as u32).max(ow as u32);
+    let nh = ((h as f64 * scale).ceil() as u32).max(oh as u32);
+    image::imageops::resize(&img, nw, nh, FilterType::Lanczos3)
 }
 
 /// `--method pixeloe` (G4, G7, G8): same output files and `--stats` keys as PIA.
@@ -435,4 +449,25 @@ fn run_pixeloe(
         std::fs::write(path, serde_json::to_string_pretty(&j)?)?;
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn enlarge_to_cover_only_grows_small_inputs() {
+        let small = RgbImage::new(100, 80);
+        assert_eq!(
+            enlarge_to_cover(small.clone(), 128, 102).dimensions(),
+            (128, 103)
+        );
+        assert_eq!(
+            enlarge_to_cover(small.clone(), 50, 300).dimensions(),
+            (375, 300)
+        );
+        assert_eq!(enlarge_to_cover(small, 100, 80).dimensions(), (100, 80));
+        let tiny = RgbImage::new(1, 1);
+        assert_eq!(enlarge_to_cover(tiny, 16, 9).dimensions(), (16, 16));
+    }
 }
