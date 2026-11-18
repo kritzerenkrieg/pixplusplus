@@ -1,7 +1,7 @@
 """Phase G parity check (G3, G5): PIARU `--method pixeloe` against pixeloe.torch.
 
 Both sides get the same input: each source is resized with Pillow's Lanczos to 4x the output
-size (long side S), as G7 and the PIXSOTA harness do, so PIARU does no resampling of its own.
+size (long side S), as G7 does, so PIARU does no resampling of its own.
 Default PixelOE options, pixel size 4, no quantisation (so G10 doesn't apply).
 
 usage:

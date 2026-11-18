@@ -2,22 +2,28 @@
 
 No rating controls. Images are embedded, so the page is one self-contained HTML file.
 Click a tile to view it full size. Output is local only (bench/out/ is git-ignored).
+Missing outputs are made by running the PIARU binary; existing ones are reused. Runs at 512
+are heavier than the smoke run, so do those on a remote machine (A5) and copy RUN_DIR back.
 
-usage: showcase.py RUN_DIR SRC_DIR [-o bench/out/showcase/index.html] [--sizes 128 512] [--k 16]
-  RUN_DIR  a run_bench.py output folder (results/<image>_<size>_k<k>_<method>.png)
+usage: showcase.py SRC_DIR [--run bench/out/showcase/runs] [--bin target/release/piaru]
+                   [-o bench/out/showcase/index.html] [--sizes 128 512] [--k 16]
   SRC_DIR  the source images, with an optional SOURCES.json ({stem: {post, source}})
+  --run    output folder (results/<image>_<size>_k<k>_<method>.png)
 """
-import argparse, base64, html, io, json
+import argparse, base64, html, io, json, subprocess
 from pathlib import Path
 from PIL import Image
 
 METHODS = ["pixeloe", "pia", "pia_imp"]  # E8: the three methods
-INFO = {"pixeloe": "PixelOE + Oklab k-means", "pia": "PIA", "pia_imp": "PIA + saliency map"}
+INFO = {"pixeloe": "PixelOE (k-means)", "pia": "PIA", "pia_imp": "PIA + saliency map"}
+FLAGS = {"pixeloe": ["--method", "pixeloe"], "pia": [], "pia_imp": ["--importance", "auto"]}
+OUT = Path(__file__).resolve().parent / "out" / "showcase"
 
 ap = argparse.ArgumentParser()
-ap.add_argument("run")
 ap.add_argument("src")
-ap.add_argument("-o", "--out", default=str(Path(__file__).resolve().parent / "out" / "showcase" / "index.html"))
+ap.add_argument("--run", default=str(OUT / "runs"))
+ap.add_argument("--bin", default=str(Path(__file__).resolve().parent.parent / "target" / "release" / "piaru"))
+ap.add_argument("-o", "--out", default=str(OUT / "index.html"))
 ap.add_argument("--sizes", type=int, nargs="+", default=[128, 512])
 ap.add_argument("--k", type=int, default=16)
 a = ap.parse_args()
@@ -48,6 +54,9 @@ for img in sorted(p for p in src.iterdir() if p.suffix.lower() in (".png", ".jpg
         body.append(f'<div class="sz">{s}</div>')
         for m in METHODS:
             p = run / "results" / f"{stem}_{s}_k{a.k}_{m}.png"
+            if not p.exists():
+                p.parent.mkdir(parents=True, exist_ok=True)
+                subprocess.run([a.bin, str(img), "-o", str(p), "-s", str(s), "-k", str(a.k), *FLAGS[m]], check=True)
             body.append(f'<figure><img class="px" src="{uri(p)}" alt="{m} {s}"></figure>' if p.exists()
                         else '<figure class="miss">missing</figure>')
     rows.append("".join(cells) + '<div class="row">' + "".join(head) + "".join(body) + "</div>")

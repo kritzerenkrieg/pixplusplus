@@ -29,10 +29,8 @@ Input is downscaled to ≤ 4× the output (`--input-factor`); under PixelOE it i
 ```sh
 bench/.venv/bin/python bench/parity.py <source> <pyxeled_out> <piaru_out>...
 ```
-Divergences and parity numbers: `docs/PORTING.md`. The benchmark harness, test images and paper
-live in the sibling research project `../PIXSOTA`.
+Divergences and parity numbers: `docs/PORTING.md`. PixelOE parity: `bench/pixeloe_parity.py`.
 
 ## Development
 Developed with [DLAD](https://github.com/kritzerenkrieg/dlad): `DECISIONS.md` is the source of truth,
-then `ARCHITECTURE.md` and `ROADMAP.md` (implementation only; the research plan is in
-`../PIXSOTA/ROADMAP.md`). Agent entry point: `AGENTS.md`.
+then `ARCHITECTURE.md` and `ROADMAP.md`. Agent entry point: `AGENTS.md`.

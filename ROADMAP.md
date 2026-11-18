@@ -11,7 +11,7 @@ flowchart LR
     end
 ```
 
-**Scope:** this file covers the implementation. The research project (paper, literature review, benchmark harness, human study) lives in `../PIXSOTA` (`../PIXSOTA/ROADMAP.md`). The benchmark tasks and the blind rating now run there.
+**Scope:** PIARU only.
 
 **Task format:** `- [ ] <task> (<codes>). Done when: <check>`
 - Codes are the decisions the task depends on.
@@ -44,18 +44,11 @@ Phases A to C were built before DLAD was adopted, so their B and C rows are stil
 
 - [x] Importance map (C1). Done when: `--importance` changes p(s) and the run completes.
 - [x] Experimental edge weight, off by default (C2). Done when: no edge map means no change in output.
-- [x] Benchmark harness, blind sheet and scoring (C3, C4). Done when: the 2-image smoke run at 128 is in `bench/out/smoke/`. The harness has since moved to `../PIXSOTA/bench/`; the smoke output stays here as generated data.
+- [x] Benchmark harness, blind sheet and scoring (C3, C4). Done when: the 2-image smoke run at 128 is in `bench/out/smoke/`. The harness was research work and is no longer part of this repo.
 
 ## Phase D: Benchmark run and report
 
-**Goal:** objective numbers for all four columns, reported before any feature work (D1).
-**Exit:** objective table in `../PIXSOTA/docs/BENCHMARK.md`. The blind rating and its verdict (F27, formerly C4) are research work and belong to `../PIXSOTA/ROADMAP.md`, not to this repo.
-**Out of scope:** solver changes, tuning, new features.
-**Status:** done.
-
-- [x] Prepare the remote run (`../PIXSOTA/bench/remote_wsl.sh`): script or notebook that builds the release binary and venv and runs `run_bench.py` (D2, A5). Done when: it runs the 2-image smoke config remotely and returns `results.csv`.
-- [x] Full run (C3, D2). Done when: the results table has 96 rows (8 images × 3 sizes × 4 methods), copied back locally. Archived in `../PIXSOTA/data/phase-d/results.csv`.
-- [x] Objective table (C3). Done when: `summarize.py` output is in `../PIXSOTA/docs/BENCHMARK.md`.
+**Status:** done. The benchmark (C3, D1, D2) was research work; its harness, results and report are not part of this repo.
 
 ## Phase E: Post-benchmark features
 

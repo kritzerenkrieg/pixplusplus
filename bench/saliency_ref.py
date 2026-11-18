@@ -1,7 +1,7 @@
 """Reference maps for `src/saliency.rs` (E7).
 
-`spectral_residual` below is copied verbatim from the benchmark harness that produced the
-showcase maps (PIXSOTA `bench/run_bench.py`). This script draws two synthetic test images
+`spectral_residual` below is the Python reference that `--importance auto` reproduces
+bit for bit. This script draws two synthetic test images
 (no third-party art, so they can be committed) and writes the Python saliency map for each:
 
   tests/fixtures/saliency_src.png       333 x 217  (horizontal-first resample)

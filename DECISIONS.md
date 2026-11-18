@@ -4,9 +4,9 @@ Source of truth: overrules `ARCHITECTURE.md` and `ROADMAP.md`. A code is the roa
 
 **Status:** **Decided**: binding, with the reason in a few words. **Inspect**: research or a spike first. **TBD**: ask, don't guess. **Question**: not yet read by the human, so treat it as TBD.
 
-**Phases:** A Foundations (done), B Core solver and parity (done), C Controls and harness (done), D Benchmark run and report (done), E Post-benchmark features, G PixelOE in Rust. Letter F is skipped so PIARU codes never collide with PIXSOTA's `F` rows.
+**Phases:** A Foundations (done), B Core solver and parity (done), C Controls and harness (done), D Benchmark run and report (done), E Post-benchmark features, G PixelOE in Rust. Letter F is unused.
 
-**Scope:** this file covers the implementation only. The research project (paper, literature review, benchmark harness, human study) lives in the sibling `../PIXSOTA` checkout with its own `DECISIONS.md` (F rows). The research rows `C3`, `C4` and `D1`–`D4` moved there as `F26`–`F31` (2026-11-17); their stubs below keep the codes from being reused.
+**Scope:** PIARU only. The rows `C3`, `C4` and `D1`–`D4` were research work (benchmark design, verdict, raters) and are retired; their codes stay so old citations resolve.
 
 ## Current state (2026-11-17)
 
@@ -31,12 +31,12 @@ Source of truth: overrules `ARCHITECTURE.md` and `ROADMAP.md`. A code is the roa
 | B7 | Palette under-use | Decided | Accept for now (at K = 16 only 9–13 entries are used). Same reason as B6. The benchmark's `colours used` column records it. Delegated to agent. |
 | C1 | Importance map | Decided | Keep p(s) ∝ 0.1 + mean importance of the pixels in s (`importance_floor`). It runs only as the `pia_imp` ablation, and changing it would move benchmark numbers (D1). Delegated to agent. |
 | C2 | Weight-in-cost (edge map) | Decided | Experimental, off unless `--edge-weight` is given. Colour term × (1 + 0.5·edge). Spec. Superseded by E1 (cut). |
-| C3 | Benchmark design | Decided | Moved to `../PIXSOTA/DECISIONS.md` as F26 (research). Code kept so old citations resolve. |
-| C4 | Weight-in-cost verdict | Decided | Moved to `../PIXSOTA/DECISIONS.md` as F27 (research). Code kept so old citations resolve. |
-| D1 | Benchmark first | Decided | Moved to `../PIXSOTA/DECISIONS.md` as F28 (research). Code kept so old citations resolve. |
-| D2 | Benchmark host | Decided | Moved to `../PIXSOTA/DECISIONS.md` as F29 (research). Code kept so old citations resolve. |
-| D3 | Quality and speed targets | Decided | Moved to `../PIXSOTA/DECISIONS.md` as F30 (research). Code kept so old citations resolve. |
-| D4 | Raters | Decided | Moved to `../PIXSOTA/DECISIONS.md` as F31 (research). Code kept so old citations resolve. |
+| C3 | Benchmark design | Decided | Retired: research work, out of scope for this repo. Code kept so old citations resolve. |
+| C4 | Weight-in-cost verdict | Decided | Retired: research work, out of scope for this repo. Code kept so old citations resolve. |
+| D1 | Benchmark first | Decided | Retired: research work, out of scope for this repo. Code kept so old citations resolve. |
+| D2 | Benchmark host | Decided | Retired: research work, out of scope for this repo. Code kept so old citations resolve. |
+| D3 | Quality and speed targets | Decided | Retired: research work, out of scope for this repo. Code kept so old citations resolve. |
+| D4 | Raters | Decided | Retired: research work, out of scope for this repo. Code kept so old citations resolve. |
 | E1 | Edge weight | Decided | Cut: remove `--edge-weight` and its cost term (C2). Judged bad on the 2026-11-17 showcase, no objective gain over PIA. User choice. |
 | E2 | GUI (egui) | Decided | Not now. Raise again as a new row if wanted. User choice. |
 | E3 | Palette per material | Decided | Not now. Raise again as a new row if wanted. User choice. |
@@ -51,7 +51,7 @@ Source of truth: overrules `ARCHITECTURE.md` and `ROADMAP.md`. A code is the roa
 | G4 | Interface | Decided | Same binary: a library module plus `piaru --method pixeloe`. PIA stays the default, so existing commands are unchanged; `--stats` keeps its shape. User choice. |
 | G5 | Parity bound | Decided | Final output vs `pixeloe.torch`, per image at 128 and 512: mean Oklab ΔE ≤ 0.5 (×100 units, as `bench/parity.py`) and ≥ 99 % of pixels identical after 8-bit rounding. Per-stage unit tests: max abs diff ≤ 1e-5 on 0..1 data (1e-3 on Lab's 0..100). Discrete steps (k-means, dithering) are judged by the final-output bound. User choice. |
 | G6 | k-centroid ties | Decided | When a k-centroid patch splits evenly (totals equal within 1e-5 relative), pick the first centroid (started from the patch maximum). Torch's pick there depends on float summation order. Tested as exact on non-tied patches; k-centroid mode is judged by mean ΔE ≤ 0.5 only, not 99 % identical. Listed in `docs/PORTING.md`. User choice. |
-| G7 | PixelOE output size | Decided | `-s` means output size for both methods. Under `--method pixeloe`, pixel_size = round(`--input-factor`) (default 4) and the input is resized to exactly pixel_size × the output, as the PIXSOTA harness did. With `--input-factor 0`, pixel_size = round(long side / s) on the unresized input (output may be one pixel larger from PixelOE's padding). User choice (2026-11-18). |
+| G7 | PixelOE output size | Decided | `-s` means output size for both methods. Under `--method pixeloe`, pixel_size = round(`--input-factor`) (default 4) and the input is resized to exactly pixel_size × the output. With `--input-factor 0`, pixel_size = round(long side / s) on the unresized input (output may be one pixel larger from PixelOE's padding). User choice (2026-11-18). |
 | G8 | PixelOE palette | Decided | Under `--method pixeloe`, the image is quantised only when `-k N` is given (k-means, N colours). Without it, the output is unquantised like upstream's default. PIA still defaults to `-k 16`. User choice (2026-11-18). |
 | G9 | PixelOE flags | Decided | PixelOE options use an `--oe-` prefix: `--oe-thickness`, `--oe-mode`, `--oe-sharpen`, `--oe-sharpen-factor`, `--oe-no-match`, `--oe-dither`, `--oe-quant`, `--oe-mapping`, `--oe-normalize`. Defaults are upstream's. Passing them without `--method pixeloe` is an error. User choice (2026-11-18). |
 | G10 | PixelOE `-k` is a hard limit | Decided | Upstream runs `match_color(quantised, down)` after k-means, which brings back continuous tones (568 colours at `-k 16` on the smoke image). PIARU skips that step by default, so the output has ≤ N colours like PIA (B4). `--oe-post-match` restores upstream; the parity check uses it. The library `Options::default()` stays upstream. User choice (2026-11-18). |
