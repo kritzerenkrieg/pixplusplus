@@ -20,6 +20,7 @@ PixelOE (Apache-2.0, ported from its torch backend; see `LICENSES/`) is the seco
 ./target/release/piaru art.png -o out.png -s 128 --method pixeloe -k 16    # k-means + dither
 #   --oe-thickness 3  --oe-mode contrast|k-centroid|lanczos|nearest|bilinear|...
 #   --oe-sharpen unsharp|laplacian  --oe-dither ordered|error-diffusion|none  --oe-no-match
+#   --oe-post-match   upstream's colour fix after -k (output then exceeds k colours, G10)
 ```
 
 Input is downscaled to ≤ 4× the output (`--input-factor`); under PixelOE it is resized to exactly that, and the factor is the pixel size (G7).

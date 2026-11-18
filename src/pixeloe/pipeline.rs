@@ -40,6 +40,9 @@ pub struct Options {
     pub quant: Option<usize>,
     pub quant_mode: Quant,
     pub dither: Dither,
+    /// Upstream's `match_color(quantised, down)` after quantising. It brings back continuous
+    /// tones, so the output has more than `quant` colours; the CLI turns it off (G10).
+    pub post_match: bool,
     pub post_upscale: bool,
     pub mapping: Mapping,
     pub normalize: Normalize,
@@ -57,6 +60,7 @@ impl Default for Options {
             quant: None,
             quant_mode: Quant::Kmeans,
             dither: Dither::Ordered,
+            post_match: true,
             post_upscale: true,
             mapping: Mapping::Current,
             normalize: Normalize::Global,
@@ -156,7 +160,11 @@ pub fn pixelize(img: &Img, o: &Options) -> Img {
                 o.dither,
                 o.quant_mode == Quant::RepeatKmeans,
             );
-            match_color(&q, &down)
+            if o.post_match {
+                match_color(&q, &down)
+            } else {
+                q
+            }
         }
         None => down,
     };
@@ -272,6 +280,24 @@ mod tests {
             }
         }
         assert!(fails.is_empty(), "over 1e-5: {fails:?}");
+    }
+
+    /// G10: without the post-quantise match the output uses at most `quant` colours.
+    #[test]
+    fn quant_without_post_match_is_hard_limit() {
+        let o = Options {
+            quant: Some(5),
+            post_match: false,
+            ..base()
+        };
+        let out = pixelize(&img("a_img"), &o);
+        let n = out.h * out.w;
+        let mut cols: Vec<[u32; 3]> = (0..n)
+            .map(|i| [0, 1, 2].map(|c| out.data[c * n + i].to_bits()))
+            .collect();
+        cols.sort_unstable();
+        cols.dedup();
+        assert!(cols.len() <= 5, "{} colours", cols.len());
     }
 
     #[test]

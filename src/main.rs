@@ -83,6 +83,10 @@ struct Cli {
     /// PixelOE quantisation mode (-k). Default kmeans.
     #[arg(long, value_enum, help_heading = "PixelOE (G9)")]
     oe_quant: Option<OeQuant>,
+    /// Keep upstream's colour match after quantising; the output then has more than -k colours
+    /// (G10).
+    #[arg(long, help_heading = "PixelOE (G9)")]
+    oe_post_match: bool,
     /// PixelOE outline weight mapping. Default current.
     #[arg(long, value_enum, help_heading = "PixelOE (G9)")]
     oe_mapping: Option<OeMapping>,
@@ -151,6 +155,7 @@ impl Cli {
             || self.oe_no_match
             || self.oe_dither.is_some()
             || self.oe_quant.is_some()
+            || self.oe_post_match
             || self.oe_mapping.is_some()
             || self.oe_normalize.is_some()
     }
@@ -190,6 +195,7 @@ impl Cli {
                 Some(OeDither::ErrorDiffusion) => Dither::ErrorDiffusion,
                 Some(OeDither::None) => Dither::None,
             },
+            post_match: self.oe_post_match,
             post_upscale: false,
             mapping: match self.oe_mapping {
                 None => d.mapping,
@@ -416,6 +422,7 @@ fn run_pixeloe(
                 "k_max": opts.quant,
                 "quant_mode": format!("{:?}", opts.quant_mode),
                 "dither": format!("{:?}", opts.dither),
+                "post_match": opts.post_match,
                 "mapping": format!("{:?}", opts.mapping),
                 "normalize": format!("{:?}", opts.normalize),
             },

@@ -58,3 +58,7 @@ via kornia 0.9.2). Each stage is checked against dumps from `bench/pixeloe_ref.p
    total squared distance and torch's pick depends on its float summation order. PIARU gives a
    tie (relative gap < 1e-5) to the first centroid, the one started from the patch maximum.
    On the 48×40 test image, 16 of 120 patches tie; the other 104 match exactly.
+2. **No colour match after quantising (G10).** Upstream follows k-means with
+   `match_color(quantised, down)`, whose wavelet colour fix brings back continuous tones (568
+   colours at `-k 16` on the smoke image). The CLI skips it, so `-k N` is a hard limit as in PIA;
+   `--oe-post-match` restores upstream. The library default (`Options::default()`) is upstream.
