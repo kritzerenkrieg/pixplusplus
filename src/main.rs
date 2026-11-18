@@ -278,8 +278,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             img = image::imageops::resize(&img, mw, mh, FilterType::Lanczos3);
         }
     }
-    img = enlarge_to_cover(img, ow, oh);
     let (w, h) = img.dimensions();
+    let (ow, oh) = cap_output(ow, oh, w as usize, h as usize);
     let rgb: Vec<[F; 3]> = img.pixels().map(|p| p.0.map(|v| v as F / 255.0)).collect();
     let importance = match cli.importance.as_ref() {
         None => None,
@@ -341,17 +341,19 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-/// I1: PIA needs at least one input pixel per output pixel. A smaller input is enlarged
-/// (Lanczos, aspect kept) just enough to cover the output grid; larger inputs are untouched.
-fn enlarge_to_cover(img: RgbImage, ow: usize, oh: usize) -> RgbImage {
-    let (w, h) = img.dimensions();
-    if w as usize >= ow && h as usize >= oh {
-        return img;
+/// I1: PIA needs at least one input pixel per output pixel. An output grid larger than the
+/// input is scaled down (aspect kept) to fit inside it, with a warning.
+fn cap_output(ow: usize, oh: usize, w: usize, h: usize) -> (usize, usize) {
+    if ow <= w && oh <= h {
+        return (ow, oh);
     }
-    let scale = (ow as f64 / w as f64).max(oh as f64 / h as f64);
-    let nw = ((w as f64 * scale).ceil() as u32).max(ow as u32);
-    let nh = ((h as f64 * scale).ceil() as u32).max(oh as u32);
-    image::imageops::resize(&img, nw, nh, FilterType::Lanczos3)
+    let f = (w as f64 / ow as f64).min(h as f64 / oh as f64);
+    let (cw, ch) = (
+        ((ow as f64 * f).round() as usize).clamp(1, w),
+        ((oh as f64 * f).round() as usize).clamp(1, h),
+    );
+    eprintln!("warning: output {ow}x{oh} exceeds the {w}x{h} input; capped to {cw}x{ch} (I1)");
+    (cw, ch)
 }
 
 /// `--method pixeloe` (G4, G7, G8): same output files and `--stats` keys as PIA.
@@ -456,18 +458,10 @@ mod tests {
     use super::*;
 
     #[test]
-    fn enlarge_to_cover_only_grows_small_inputs() {
-        let small = RgbImage::new(100, 80);
-        assert_eq!(
-            enlarge_to_cover(small.clone(), 128, 102).dimensions(),
-            (128, 103)
-        );
-        assert_eq!(
-            enlarge_to_cover(small.clone(), 50, 300).dimensions(),
-            (375, 300)
-        );
-        assert_eq!(enlarge_to_cover(small, 100, 80).dimensions(), (100, 80));
-        let tiny = RgbImage::new(1, 1);
-        assert_eq!(enlarge_to_cover(tiny, 16, 9).dimensions(), (16, 16));
+    fn cap_output_fits_inside_input() {
+        assert_eq!(cap_output(128, 102, 100, 80), (100, 80));
+        assert_eq!(cap_output(50, 300, 100, 80), (13, 80));
+        assert_eq!(cap_output(100, 80, 100, 80), (100, 80));
+        assert_eq!(cap_output(16, 9, 1, 1), (1, 1));
     }
 }

@@ -82,7 +82,7 @@ Phases A to C were built before DLAD was adopted, so their B and C rows are stil
 
 ## Phase I: Any output size (I1)
 
-- [x] Enlarge inputs smaller than the PIA output grid (I1). Done when: a 100×80 input runs at `-s 128` and the smoke output is unchanged. (2026-11-18: 100×80 → 128×102 in 0.5 s; smoke md5 unchanged.)
+- [x] Cap the PIA output grid at the input size, with a warning (I1). Done when: a 100×80 input at `-s 128` runs with a warning and the smoke output is unchanged. (2026-11-18: capped to 100×80 with a warning; smoke md5 unchanged.)
 
 ## Cycle: feature and maintenance
 
