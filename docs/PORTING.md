@@ -86,3 +86,12 @@ with 6 threads, kornia 0.9.0, pixeloe 1.0.0). ΔE is Oklab ×100 between the two
 12/12 within G5; worst mean ΔE 0.001. The few differing pixels are float-order effects (median
 and argmin flips). PIARU uses about 4.5× less peak memory but is about 2.5× slower: the port
 is a straight transcription, mostly single-threaded (only the wavelet blur uses rayon).
+
+### PixelOE speed (G11), 2026-11-18
+Vectorised wavelet blur (same per-pixel summation order) and row-parallel morphology. All 12
+parity outputs are byte-identical to the run above. Same server:
+
+| size | PIARU before | PIARU now | torch | PIARU peak MiB |
+|---|---|---|---|---|
+| 128 | 798–946 ms | 249–286 ms | 317–385 ms | 28–32 |
+| 512 | 13.5–16.3 s | 3.8–4.7 s | 5.4–6.8 s | 369–422 |

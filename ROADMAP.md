@@ -84,8 +84,8 @@ Phases A to C were built before DLAD was adopted, so their B and C rows are stil
 
 ## Phase H: PixelOE speed (G11)
 
-- [ ] Profile: per-stage times at 128 and 512. Done when: the slowest stages are listed with times.
-- [ ] Parallelise and speed up the hot stages. Done when: `cargo test` passes, outputs are byte-identical to before on the showcase inputs, and 512 is faster than torch (6.0 s) on the main GPU server.
+- [x] Profile: per-stage times at 128 and 512. Done when: the slowest stages are listed with times. (2026-11-18, 128 local: match_color 1226 ms of about 1.4 s, wavelet blur; outline 119 ms; contrast 15 ms.)
+- [x] Parallelise and speed up the hot stages. Done when: `cargo test` passes, outputs are byte-identical to before on the showcase inputs, and 512 is faster than torch (6.0 s) on the main GPU server. (2026-11-18: byte-identical on all 12; 512 in 3.8–4.7 s against torch's 5.4–6.8 s.)
 
 ## Cycle: feature and maintenance
 
