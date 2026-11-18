@@ -1,10 +1,10 @@
-# PIARU
+# Pix++
 
 How the system is built. `DECISIONS.md` overrules this file wherever they disagree. Cite decision codes (`B2`) instead of restating the choice or its reason.
 
 ```mermaid
 flowchart LR
-    User["User / bench scripts"] --> CLI["piaru CLI (main.rs)"]
+    User["User / bench scripts"] --> CLI["pixplusplus CLI (main.rs)"]
     CLI --> Solver["Solver (pia.rs)"]
     Solver --> Color["Colour (color.rs)"]
     CLI --> Files[("PNG out, preview, stats JSON")]
@@ -28,7 +28,7 @@ Turns concept art into pixel art with a hard palette limit, using Pixelated Imag
 
 | Actor / external system | Direction | Interface |
 |---|---|---|
-| User | in | CLI (`piaru --help`) |
+| User | in | CLI (`pixplusplus --help`) |
 | Image files | in / out | PNG / JPEG / WebP in; PNG out |
 | PixelOE, Pyxeled (`refs/`) | in | References for the ports, Python |
 
@@ -56,7 +56,7 @@ Turns concept art into pixel art with a hard palette limit, using Pixelated Imag
 5. At T_final: merge any leftover pairs (B4), apply saturation (B5), write one pixel per superpixel.
 
 **Parity check**
-1. `bench/parity.py` loads the source, the Pyxeled output and one or more PIARU outputs.
+1. `bench/parity.py` loads the source, the Pyxeled output and one or more Pix++ outputs.
 2. `bench/metrics.py` computes ΔE against the box-downsampled source, edge retention and palette distances.
 3. The result is compared against the parity numbers recorded in `docs/PORTING.md` (A4, B1).
 
@@ -72,8 +72,8 @@ Turns concept art into pixel art with a hard palette limit, using Pixelated Imag
 
 | Interface | Kind | Spec location |
 |---|---|---|
-| `piaru` CLI | CLI | `src/main.rs` (`Cli`) |
-| `piaru::run(&Input, &Params) -> Output` | Rust API | `src/pia.rs` |
+| `pixplusplus` CLI | CLI | `src/main.rs` (`Cli`) |
+| `pixplusplus::run(&Input, &Params) -> Output` | Rust API | `src/pia.rs` |
 | Stats JSON | File | `src/main.rs` |
 
 ## G. Stack

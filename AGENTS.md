@@ -4,7 +4,7 @@ Method: [DLAD (Decision-led Agentic Development)](https://github.com/kritzerenkr
 
 Read `DECISIONS.md` first. It overrules `ARCHITECTURE.md` and `ROADMAP.md` wherever they disagree.
 
-This repository is PIARU: the PIA solver, the CLI, Pyxeled parity and the PixelOE port. It is a standalone project; don't read from or write to other checkouts.
+This repository is Pix++: the PIA solver, the CLI, Pyxeled parity and the PixelOE port. It is a standalone project; don't read from or write to other checkouts.
 
 ## Decision statuses
 
@@ -23,8 +23,8 @@ This repository is PIARU: the PIA solver, the CLI, Pyxeled parity and the PixelO
 - Test (single): `cargo test <name>`, e.g. `cargo test respects_hard_palette_limit`
 - Lint: `cargo clippy` (must stay warning-free). Format: `cargo fmt --check` must pass (E4).
 - Typecheck: `cargo check`
-- Smoke run (about 1 s): `./target/release/piaru bench/images/hunter_hunting.jpg -o target/smoke.png -s 128 -k 16 --stats target/smoke.json`
-- Parity check: `bench/.venv/bin/python bench/parity.py <source> <pyxeled_out> <piaru_out>...` (see `docs/PORTING.md`)
+- Smoke run (about 1 s): `./target/release/pixplusplus bench/images/hunter_hunting.jpg -o target/smoke.png -s 128 -k 16 --stats target/smoke.json`
+- Parity check: `bench/.venv/bin/python bench/parity.py <source> <pyxeled_out> <pixplusplus_out>...` (see `docs/PORTING.md`)
 
 ## Working loop
 

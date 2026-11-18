@@ -11,7 +11,7 @@ flowchart LR
     end
 ```
 
-**Scope:** PIARU only.
+**Scope:** Pix++ only.
 
 **Task format:** `- [ ] <task> (<codes>). Done when: <check>`
 - Codes are the decisions the task depends on.
@@ -64,7 +64,7 @@ Phases A to C were built before DLAD was adopted, so their B and C rows are stil
 
 **Goal:** a Rust port of PixelOE that matches the Python original and is much cheaper to run (G1).
 **Out of scope:** PIA solver changes (E5).
-**Exit:** `piaru --method pixeloe` covers every PixelOE stage, and its parity check passes the G5 bound.
+**Exit:** `pixplusplus --method pixeloe` covers every PixelOE stage, and its parity check passes the G5 bound.
 
 - [x] Building blocks (G1, G2): kornia CIELAB conversions, the soft circle kernels, erode/dilate and the local median/min/max stat from `pixeloe/torch/{lab,minmax,outline}.py`. Done when: unit tests compare against values dumped from the Python functions. (2026-11-17: references from `bench/pixeloe_ref.py` on the ASUS, torch 2.15.0, kornia 0.9.2, pixeloe 1.0.0. Kernels, erode and dilate bit-exact; Lab within 6.1e-5 (L 0..100); Lab→RGB within 2.3e-6; local stats within 1.2e-7.)
 - [x] Outline expansion and edge-weight map (G2): `torch/outline.py`. Done when: the expanded image and weight map match Python on a test image for every weight mapping and thickness 1–3. (2026-11-17: weights within 1.9e-6, expanded image within 2.4e-7. The padded image `b` is covered by the full-pipeline task.)
@@ -72,8 +72,8 @@ Phases A to C were built before DLAD was adopted, so their B and C rows are stil
 - [x] Downscale modes (G2): contrast-based, k-centroid, Lanczos and the conventional modes. Done when: each matches Python within the G5 bound. (2026-11-17: Lanczos, nearest, nearest-exact, area bit-exact; contrast 6.3e-7, bilinear 6e-8, bicubic 1.2e-7; k-centroid exact on 104/120 patches, the 16 ties follow G6.)
 - [x] Sharpen (G2): Laplacian and unsharp. Done when: matches Python within the G5 bound. (2026-11-17: unsharp 1.8e-7, Laplacian 4.2e-7.)
 - [x] Colour step (G2): k-means palette, colour transfer, dithering (`torch/color.py`). Done when: matches Python within the G5 bound. (2026-11-17: Gaussian kernels bit-exact via f16 rounding; wavelet blur 1.8e-7, match_color 1.8e-6; k-means palette, quantise, ordered and error-diffusion dither 1.2e-7. Weighted/repeat k-means are checked end to end in the pipeline task.)
-- [x] Pipeline and CLI (G4): `piaru --method pixeloe` with PixelOE's options and the existing `--stats` shape. Done when: `cargo test`, `cargo clippy` pass and the smoke run works with `--method pixeloe`. (2026-11-18: 17 upstream configs within 2.4e-6; flags per G7–G9; smoke 128×80 in 1.2 s, 56 MiB; PIA output byte-identical.)
-- [x] Parity check (G3, G5): a `bench/` script runs both on the test images. Done when: mean ΔE is under the G5 bound on every image, results in `docs/PORTING.md`, and the 512 peak memory and time are recorded next to the torch numbers. (2026-11-18: 12/12 within G5, worst mean ΔE 0.001; 512: torch 6.0 s / 1.6 GB, PIARU 15 s / 350 MiB.)
+- [x] Pipeline and CLI (G4): `pixplusplus --method pixeloe` with PixelOE's options and the existing `--stats` shape. Done when: `cargo test`, `cargo clippy` pass and the smoke run works with `--method pixeloe`. (2026-11-18: 17 upstream configs within 2.4e-6; flags per G7–G9; smoke 128×80 in 1.2 s, 56 MiB; PIA output byte-identical.)
+- [x] Parity check (G3, G5): a `bench/` script runs both on the test images. Done when: mean ΔE is under the G5 bound on every image, results in `docs/PORTING.md`, and the 512 peak memory and time are recorded next to the torch numbers. (2026-11-18: 12/12 within G5, worst mean ΔE 0.001; 512: torch 6.0 s / 1.6 GB, Pix++ 15 s / 350 MiB.)
 
 ## Phase H: PixelOE speed (G11)
 

@@ -1,13 +1,13 @@
-"""Phase G parity check (G3, G5): PIARU `--method pixeloe` against pixeloe.torch.
+"""Phase G parity check (G3, G5): Pix++ `--method pixeloe` against pixeloe.torch.
 
 Both sides get the same input: each source is resized with Pillow's Lanczos to 4x the output
-size (long side S), as G7 does, so PIARU does no resampling of its own.
+size (long side S), as G7 does, so Pix++ does no resampling of its own.
 Default PixelOE options, pixel size 4, no quantisation (so G10 doesn't apply).
 
 usage:
   pixeloe_parity.py prep    SRC_DIR WORK [--sizes 128 512]   resize sources into WORK/in/
   pixeloe_parity.py torch   WORK                             pixeloe.torch -> WORK/torch/ (heavy, A5)
-  pixeloe_parity.py piaru   WORK PIARU_BIN                   piaru -> WORK/piaru/
+  pixeloe_parity.py pixplusplus   WORK PIXPLUSPLUS_BIN                   pixplusplus -> WORK/pixplusplus/
   pixeloe_parity.py compare WORK                             G5 table (markdown) to stdout
 
 Each torch run is a separate process so its peak RSS is its own. Timings exclude imports.
@@ -23,7 +23,7 @@ PS = 4
 
 
 def out_size(w, h, s):
-    """PIARU's -s rule (src/main.rs): long side s, aspect kept, rounded."""
+    """Pix++'s -s rule (src/main.rs): long side s, aspect kept, rounded."""
     return (s, max(1, round(h * s / w))) if w >= h else (max(1, round(w * s / h)), s)
 
 
@@ -69,8 +69,8 @@ def cmd_torch(a):
         print(inp.name, js.read_text())
 
 
-def cmd_piaru(a):
-    for inp, out, js in runs(Path(a.work), "piaru"):
+def cmd_pixplusplus(a):
+    for inp, out, js in runs(Path(a.work), "pixplusplus"):
         s = int(inp.stem.rsplit("_", 1)[1])
         subprocess.run([a.bin, str(inp), "-o", str(out), "-s", str(s), "--method", "pixeloe",
                         "--input-factor", str(PS), "--stats", str(js)], check=True)
@@ -85,16 +85,16 @@ def srgb_to_oklab(rgb8):
 def cmd_compare(a):
     work = Path(a.work)
     rows, worst = [], 0.0
-    print("| image | size | mean ΔE | max ΔE | identical | torch ms | piaru ms | torch peak MiB | piaru peak MiB |")
+    print("| image | size | mean ΔE | max ΔE | identical | torch ms | pixplusplus ms | torch peak MiB | pixplusplus peak MiB |")
     print("|---|---|---|---|---|---|---|---|---|")
     for inp in sorted((work / "in").glob("*.png")):
         t = np.asarray(Image.open(work / "torch" / inp.name).convert("RGB"))
-        r = np.asarray(Image.open(work / "piaru" / inp.name).convert("RGB"))
+        r = np.asarray(Image.open(work / "pixplusplus" / inp.name).convert("RGB"))
         assert t.shape == r.shape, (inp.name, t.shape, r.shape)
         de = np.linalg.norm(srgb_to_oklab(t) - srgb_to_oklab(r), axis=-1) * 100
         same = (t == r).all(-1).mean() * 100
         tj = json.loads((work / "torch" / (inp.stem + ".json")).read_text())
-        pj = json.loads((work / "piaru" / (inp.stem + ".json")).read_text())
+        pj = json.loads((work / "pixplusplus" / (inp.stem + ".json")).read_text())
         name, s = inp.stem.rsplit("_", 1)
         ok = de.mean() <= 0.5 and same >= 99.0
         worst = max(worst, de.mean())
@@ -115,7 +115,7 @@ if __name__ == "__main__":
     p = sp.add_parser("prep"); p.add_argument("src"); p.add_argument("work")
     p.add_argument("--sizes", type=int, nargs="+", default=[128, 512])
     sp.add_parser("torch").add_argument("work")
-    p = sp.add_parser("piaru"); p.add_argument("work"); p.add_argument("bin")
+    p = sp.add_parser("pixplusplus"); p.add_argument("work"); p.add_argument("bin")
     sp.add_parser("compare").add_argument("work")
     a = ap.parse_args()
-    {"prep": cmd_prep, "torch": cmd_torch, "piaru": cmd_piaru, "compare": cmd_compare}[a.cmd](a)
+    {"prep": cmd_prep, "torch": cmd_torch, "pixplusplus": cmd_pixplusplus, "compare": cmd_compare}[a.cmd](a)

@@ -1,15 +1,15 @@
 [package]
-name = "piaru"
+name = "pixplusplus"
 version = "0.1.0"
 edition = "2021"
-description = "Pixelated Image Abstraction (Gerstner et al. 2012) in Rust: joint superpixel + palette optimisation via mass-constrained deterministic annealing, in Oklab."
+description = "Pix++, a procedural pixelization program: Pixelated Image Abstraction (Gerstner et al. 2012) in Rust: joint superpixel + palette optimisation via mass-constrained deterministic annealing, in Oklab."
 license = "MIT OR Apache-2.0"
 
 [lib]
 path = "src/lib.rs"
 
 [[bin]]
-name = "piaru"
+name = "pixplusplus"
 path = "src/main.rs"
 
 [dependencies]

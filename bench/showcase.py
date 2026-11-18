@@ -2,10 +2,10 @@
 
 No rating controls. Images are embedded, so the page is one self-contained HTML file.
 Click a tile to view it full size. Output is local only (bench/out/ is git-ignored).
-Missing outputs are made by running the PIARU binary; existing ones are reused. Runs at 512
+Missing outputs are made by running the Pix++ binary; existing ones are reused. Runs at 512
 are heavier than the smoke run, so do those on a remote machine (A5) and copy RUN_DIR back.
 
-usage: showcase.py SRC_DIR [--run bench/out/showcase/runs] [--bin target/release/piaru]
+usage: showcase.py SRC_DIR [--run bench/out/showcase/runs] [--bin target/release/pixplusplus]
                    [-o bench/out/showcase/index.html] [--sizes 128 512] [--k 16]
   SRC_DIR  the source images, with an optional SOURCES.json ({stem: {post, source}})
   --run    output folder (results/<image>_<size>_k<k>_<method>.png)
@@ -22,7 +22,7 @@ OUT = Path(__file__).resolve().parent / "out" / "showcase"
 ap = argparse.ArgumentParser()
 ap.add_argument("src")
 ap.add_argument("--run", default=str(OUT / "runs"))
-ap.add_argument("--bin", default=str(Path(__file__).resolve().parent.parent / "target" / "release" / "piaru"))
+ap.add_argument("--bin", default=str(Path(__file__).resolve().parent.parent / "target" / "release" / "pixplusplus"))
 ap.add_argument("-o", "--out", default=str(OUT / "index.html"))
 ap.add_argument("--sizes", type=int, nargs="+", default=[128, 512])
 ap.add_argument("--k", type=int, default=16)
@@ -66,7 +66,7 @@ hdr = '<div class="row hdr"><div></div><div></div>' + "".join(
 
 page = f"""<!doctype html><html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>PIARU Showcase</title>
+<title>Pix++ Showcase</title>
 <style>
 :root{{--bg:#f6f5f2;--fg:#1d1d1f;--mut:#6b6b70;--line:#dcdbd6}}
 @media (prefers-color-scheme:dark){{:root{{--bg:#141416;--fg:#ececef;--mut:#9a9aa2;--line:#34343a}}}}
@@ -82,7 +82,7 @@ figure{{margin:0}}.miss{{color:var(--mut);text-align:center}}
 #zoom{{position:fixed;inset:0;background:rgba(0,0,0,.85);display:none;align-items:center;justify-content:center;z-index:9;cursor:zoom-out}}
 #zoom img{{max-width:96vw;max-height:96vh;image-rendering:pixelated}}
 </style></head><body><main>
-<h1>PIARU showcase</h1><div class="mut">K = {a.k}, output width {' / '.join(map(str, a.sizes))} px. Click any tile to enlarge.</div>
+<h1>Pix++ showcase</h1><div class="mut">K = {a.k}, output width {' / '.join(map(str, a.sizes))} px. Click any tile to enlarge.</div>
 {hdr}{''.join(rows)}
 </main><div id="zoom"><img alt=""></div>
 <script>

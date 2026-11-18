@@ -1,4 +1,4 @@
-# Porting notes: Pyxeled → PIARU
+# Porting notes: Pyxeled → Pix++
 
 Objective, constants and loop structure are ported from `gskaggs/Pyxeled/pyxeled.py`.
 
@@ -18,11 +18,11 @@ Working space is Oklab × 100, so these CIELAB-tuned constants stay on the same 
 1. `Color.perturb` adds `delta[1]` to the b channel (should be `delta[2]`).
 2. The superpixel grid is anchored at cell top-left corners, not centres.
 3. `normalize_probs` writes the cluster average to the misspelled `palette_color`, so it is
-   never used. The effective behaviour (argmax sub-colour) is what PIARU does in both modes.
+   never used. The effective behaviour (argmax sub-colour) is what Pix++ does in both modes.
    The "intended" code would have used *global* cluster mass, which gives every superpixel
    the same colour, so it is not ported.
 4. If annealing ends before K reaches K_max, Pyxeled outputs up to 2·K sub-colours, which can
-   break the palette limit. PIARU merges any remaining pairs and runs one last association,
+   break the palette limit. Pix++ merges any remaining pairs and runs one last association,
    so the limit holds.
 5. Output colours are the palette *before* the final refinement (kept in compat only).
 
@@ -32,9 +32,9 @@ Working space is Oklab × 100, so these CIELAB-tuned constants stay on the same 
 | run | colours | ΔE→source | ΔE vs Pyxeled out | px within ΔE 5 | palette dist |
 |---|---|---|---|---|---|
 | Pyxeled reference | 42 | 3.13 | — | — | — |
-| PIARU compat, f64 | 41 | 3.10 | 0.46 | 97 % | 0.34 / 0.40 |
-| PIARU compat, f32 | 29 | 3.17 | 1.60 | 94 % | 0.87 / 1.33 |
-| PIARU Oklab (default) | 18 | 2.64 | 3.68 | 82 % | — |
+| Pix++ compat, f64 | 41 | 3.10 | 0.46 | 97 % | 0.34 / 0.40 |
+| Pix++ compat, f32 | 29 | 3.17 | 1.60 | 94 % | 0.87 / 1.33 |
+| Pix++ Oklab (default) | 18 | 2.64 | 3.68 | 82 % | — |
 
 (ΔE values are Oklab × 100.) The f32 gap comes from split decisions near ε_cluster: precision
 changes which clusters split, but not output quality.
@@ -55,7 +55,7 @@ via kornia 0.9.2). Each stage is checked against dumps from `bench/pixeloe_ref.p
 (`tests/fixtures/pixeloe/`), within 1e-5 on 0..1 data (G5). Divergences from upstream:
 
 1. **k-centroid ties (G6).** When a patch's 2-means splits evenly, both centroids have the same
-   total squared distance and torch's pick depends on its float summation order. PIARU gives a
+   total squared distance and torch's pick depends on its float summation order. Pix++ gives a
    tie (relative gap < 1e-5) to the first centroid, the one started from the patch maximum.
    On the 48×40 test image, 16 of 120 patches tie; the other 104 match exactly.
 2. **No colour match after quantising (G10).** Upstream follows k-means with
@@ -68,7 +68,7 @@ via kornia 0.9.2). Each stage is checked against dumps from `bench/pixeloe_ref.p
 Pillow-resized input for both. Run on the main GPU server (CPU only, 12 cores; torch 2.15.0+cpu
 with 6 threads, kornia 0.9.0, pixeloe 1.0.0). ΔE is Oklab ×100 between the two 8-bit outputs.
 
-| image | size | mean ΔE | max ΔE | identical | torch ms | piaru ms | torch peak MiB | piaru peak MiB |
+| image | size | mean ΔE | max ΔE | identical | torch ms | pixplusplus ms | torch peak MiB | pixplusplus peak MiB |
 |---|---|---|---|---|---|---|---|---|
 | anime_hood | 128 | 0.000 | 0.1 | 99.98 % | 317 | 868 | 503 | 27 |
 | anime_hood | 512 | 0.000 | 1.8 | 99.99 % | 6006 | 14946 | 1598 | 354 |
@@ -84,14 +84,14 @@ with 6 threads, kornia 0.9.0, pixeloe 1.0.0). ΔE is Oklab ×100 between the two
 | toon_penguin | 512 | 0.000 | 0.6 | 99.98 % | 6789 | 16270 | 1667 | 375 |
 
 12/12 within G5; worst mean ΔE 0.001. The few differing pixels are float-order effects (median
-and argmin flips). PIARU uses about 4.5× less peak memory but is about 2.5× slower: the port
+and argmin flips). Pix++ uses about 4.5× less peak memory but is about 2.5× slower: the port
 is a straight transcription, mostly single-threaded (only the wavelet blur uses rayon).
 
 ### PixelOE speed (G11), 2026-11-18
 Vectorised wavelet blur (same per-pixel summation order) and row-parallel morphology. All 12
 parity outputs are byte-identical to the run above. Same server:
 
-| size | PIARU before | PIARU now | torch | PIARU peak MiB |
+| size | Pix++ before | Pix++ now | torch | Pix++ peak MiB |
 |---|---|---|---|---|
 | 128 | 798–946 ms | 249–286 ms | 317–385 ms | 28–32 |
 | 512 | 13.5–16.3 s | 3.8–4.7 s | 5.4–6.8 s | 369–422 |

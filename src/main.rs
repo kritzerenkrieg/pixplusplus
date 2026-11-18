@@ -1,11 +1,11 @@
 use clap::Parser;
 use image::{imageops::FilterType, GrayImage, RgbImage};
-use piaru::pixeloe::color::Dither;
-use piaru::pixeloe::downscale::Interp;
-use piaru::pixeloe::outline::{Mapping, Normalize};
-use piaru::pixeloe::pipeline::{pixelize, Mode, Options, Quant, Sharpen};
-use piaru::pixeloe::Img;
-use piaru::{peak_rss_kib, run, spectral_residual, Input, Params, Space, Stats, F};
+use pixplusplus::pixeloe::color::Dither;
+use pixplusplus::pixeloe::downscale::Interp;
+use pixplusplus::pixeloe::outline::{Mapping, Normalize};
+use pixplusplus::pixeloe::pipeline::{pixelize, Mode, Options, Quant, Sharpen};
+use pixplusplus::pixeloe::Img;
+use pixplusplus::{peak_rss_kib, run, spectral_residual, Input, Params, Space, Stats, F};
 use std::path::PathBuf;
 use std::time::Instant;
 

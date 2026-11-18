@@ -1,8 +1,8 @@
 //! Per-stage timings of the PixelOE port (G11): `cargo run --release --example oe_profile IMG`.
-use piaru::pixeloe::color::match_color;
-use piaru::pixeloe::downscale::contrast;
-use piaru::pixeloe::outline::{outline_expansion, Mapping, Normalize};
-use piaru::pixeloe::Img;
+use pixplusplus::pixeloe::color::match_color;
+use pixplusplus::pixeloe::downscale::contrast;
+use pixplusplus::pixeloe::outline::{outline_expansion, Mapping, Normalize};
+use pixplusplus::pixeloe::Img;
 use std::time::Instant;
 
 fn main() {
@@ -18,8 +18,13 @@ fn main() {
     }
     let img = Img::from_vec(3, h, w, d);
     let t = Instant::now();
-    let w8 =
-        piaru::pixeloe::outline::expansion_weight(&img, 4, 2, Mapping::Current, Normalize::Global);
+    let w8 = pixplusplus::pixeloe::outline::expansion_weight(
+        &img,
+        4,
+        2,
+        Mapping::Current,
+        Normalize::Global,
+    );
     eprintln!(
         "expansion_weight {:7.0} ms",
         t.elapsed().as_secs_f64() * 1e3

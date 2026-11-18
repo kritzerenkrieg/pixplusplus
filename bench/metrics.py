@@ -1,4 +1,4 @@
-"""Objective metrics for the PIARU benchmark. All colour maths in Oklab.
+"""Objective metrics for the Pix++ benchmark. All colour maths in Oklab.
 
 Reference for every method = the exact input image the methods received, box-downsampled
 to the output grid (what a perfect, palette-unconstrained pixelisation would show).
