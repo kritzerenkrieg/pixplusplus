@@ -62,3 +62,27 @@ via kornia 0.9.2). Each stage is checked against dumps from `bench/pixeloe_ref.p
    `match_color(quantised, down)`, whose wavelet colour fix brings back continuous tones (568
    colours at `-k 16` on the smoke image). The CLI skips it, so `-k N` is a hard limit as in PIA;
    `--oe-post-match` restores upstream. The library default (`Options::default()`) is upstream.
+
+### PixelOE parity (G3, G5), 2026-11-18
+`bench/pixeloe_parity.py` on the 6 showcase images, default options, pixel size 4, same
+Pillow-resized input for both. Run on the main GPU server (CPU only, 12 cores; torch 2.15.0+cpu
+with 6 threads, kornia 0.9.0, pixeloe 1.0.0). ΔE is Oklab ×100 between the two 8-bit outputs.
+
+| image | size | mean ΔE | max ΔE | identical | torch ms | piaru ms | torch peak MiB | piaru peak MiB |
+|---|---|---|---|---|---|---|---|---|
+| anime_hood | 128 | 0.000 | 0.1 | 99.98 % | 317 | 868 | 503 | 27 |
+| anime_hood | 512 | 0.000 | 1.8 | 99.99 % | 6006 | 14946 | 1598 | 354 |
+| anime_red | 128 | 0.000 | 0.2 | 99.99 % | 333 | 798 | 500 | 26 |
+| anime_red | 512 | 0.000 | 1.7 | 99.99 % | 5396 | 13523 | 1531 | 335 |
+| land_castle | 128 | 0.000 | 0.0 | 100.00 % | 321 | 858 | 501 | 27 |
+| land_castle | 512 | 0.000 | 0.4 | 100.00 % | 5863 | 14883 | 1558 | 346 |
+| land_wreck | 128 | 0.000 | 0.0 | 100.00 % | 330 | 874 | 505 | 28 |
+| land_wreck | 512 | 0.000 | 0.6 | 99.99 % | 6123 | 15584 | 1596 | 354 |
+| toon_chibi | 128 | 0.001 | 6.4 | 99.99 % | 318 | 875 | 502 | 27 |
+| toon_chibi | 512 | 0.000 | 1.7 | 100.00 % | 6008 | 14925 | 1583 | 350 |
+| toon_penguin | 128 | 0.000 | 0.1 | 99.98 % | 385 | 946 | 510 | 29 |
+| toon_penguin | 512 | 0.000 | 0.6 | 99.98 % | 6789 | 16270 | 1667 | 375 |
+
+12/12 within G5; worst mean ΔE 0.001. The few differing pixels are float-order effects (median
+and argmin flips). PIARU uses about 4.5× less peak memory but is about 2.5× slower: the port
+is a straight transcription, mostly single-threaded (only the wavelet blur uses rayon).
