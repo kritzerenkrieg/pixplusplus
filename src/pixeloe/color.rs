@@ -78,30 +78,29 @@ pub fn wavelet_blur(img: &Img, radius: usize) -> Img {
                 .collect()
         })
         .collect();
-    let xs: Vec<Vec<usize>> = (0..w)
-        .map(|x| {
-            (0..n)
-                .map(|j| idx(x as isize + j as isize - radius as isize, w))
-                .collect()
+    // Each source row padded horizontally once, so tap j of output x reads padded[x + j].
+    let padded: Vec<f32> = (0..img.c * h)
+        .flat_map(|row| {
+            let src = &img.data[row * w..(row + 1) * w];
+            (0..w + n - 1).map(move |p| src[idx(p as isize - radius as isize, w)])
         })
         .collect();
+    let pw = w + n - 1;
     let mut out = Img::new(img.c, h, w);
+    // Same per-pixel summation order as a direct loop (rows i, then columns j), so the result
+    // is bit-identical; the x loop is innermost so it vectorises (G11).
     out.data
         .par_chunks_mut(w)
         .enumerate()
         .for_each(|(row, line)| {
             let (c, y) = (row / h, row % h);
-            let plane = img.plane(c);
-            for (x, o) in line.iter_mut().enumerate() {
-                let mut s = 0.0f32;
-                for (i, &yy) in ys[y].iter().enumerate() {
-                    let src = &plane[yy * w..(yy + 1) * w];
-                    let kr = &k.data[i * n..(i + 1) * n];
-                    for (j, &xx) in xs[x].iter().enumerate() {
-                        s += src[xx] * kr[j];
+            for (i, &yy) in ys[y].iter().enumerate() {
+                let prow = &padded[(c * h + yy) * pw..(c * h + yy + 1) * pw];
+                for (j, &kv) in k.data[i * n..(i + 1) * n].iter().enumerate() {
+                    for (o, &v) in line.iter_mut().zip(&prow[j..j + w]) {
+                        *o += v * kv;
                     }
                 }
-                *o = s;
             }
         });
     out

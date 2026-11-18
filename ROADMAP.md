@@ -82,6 +82,11 @@ Phases A to C were built before DLAD was adopted, so their B and C rows are stil
 - [x] Pipeline and CLI (G4): `piaru --method pixeloe` with PixelOE's options and the existing `--stats` shape. Done when: `cargo test`, `cargo clippy` pass and the smoke run works with `--method pixeloe`. (2026-11-18: 17 upstream configs within 2.4e-6; flags per G7–G9; smoke 128×80 in 1.2 s, 56 MiB; PIA output byte-identical.)
 - [x] Parity check (G3, G5): a `bench/` script runs both on the test images. Done when: mean ΔE is under the G5 bound on every image, results in `docs/PORTING.md`, and the 512 peak memory and time are recorded next to the torch numbers. (2026-11-18: 12/12 within G5, worst mean ΔE 0.001; 512: torch 6.0 s / 1.6 GB, PIARU 15 s / 350 MiB.)
 
+## Phase H: PixelOE speed (G11)
+
+- [ ] Profile: per-stage times at 128 and 512. Done when: the slowest stages are listed with times.
+- [ ] Parallelise and speed up the hot stages. Done when: `cargo test` passes, outputs are byte-identical to before on the showcase inputs, and 512 is faster than torch (6.0 s) on the main GPU server.
+
 ## Cycle: feature and maintenance
 
 No end state. Once the planned phases are done, work repeats this loop. Each turn is a small phase of its own: new decisions first, then tasks.

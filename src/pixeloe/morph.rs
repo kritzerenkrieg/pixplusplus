@@ -3,6 +3,7 @@
 //! where most of upstream's memory goes.
 
 use super::Img;
+use rayon::prelude::*;
 
 /// PixelOE `circle_kernel(r)`: a disc of radius `r` with fractional (anti-aliased) edges,
 /// computed in f64 like numpy, stored as f32.
@@ -72,10 +73,15 @@ pub fn kernel(t: usize) -> Img {
 fn morph_pass(img: &Img, k: &Img, dilate: bool) -> Img {
     let (kh, kw) = (k.h, k.w);
     let (ph, pw) = (kh / 2, kw / 2);
-    let mut out = Img::new(img.c, img.h, img.w);
-    for c in 0..img.c {
-        for y in 0..img.h {
-            for x in 0..img.w {
+    let (h, w) = (img.h, img.w);
+    let mut out = Img::new(img.c, h, w);
+    // Rows are independent; per-pixel arithmetic and order are unchanged (G11).
+    out.data
+        .par_chunks_mut(w)
+        .enumerate()
+        .for_each(|(row, line)| {
+            let (c, y) = (row / h, row % h);
+            for (x, o) in line.iter_mut().enumerate() {
                 let mut best = if dilate {
                     f32::NEG_INFINITY
                 } else {
@@ -85,8 +91,7 @@ fn morph_pass(img: &Img, k: &Img, dilate: bool) -> Img {
                     for j in 0..kw {
                         let yy = y as isize + i as isize - ph as isize;
                         let xx = x as isize + j as isize - pw as isize;
-                        let v = if yy < 0 || xx < 0 || yy >= img.h as isize || xx >= img.w as isize
-                        {
+                        let v = if yy < 0 || xx < 0 || yy >= h as isize || xx >= w as isize {
                             0.0
                         } else {
                             img.at(c, yy as usize, xx as usize)
@@ -99,10 +104,9 @@ fn morph_pass(img: &Img, k: &Img, dilate: bool) -> Img {
                         }
                     }
                 }
-                out.set(c, y, x, best);
+                *o = best;
             }
-        }
-    }
+        });
     out
 }
 
