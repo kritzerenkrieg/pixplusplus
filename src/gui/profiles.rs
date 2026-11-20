@@ -90,13 +90,45 @@ pub fn save(dir: &Path, name: &str, settings: &Settings) -> Result<(), String> {
         settings: settings.clone(),
     })
     .map_err(|e| e.to_string())?;
-    let tmp = p.with_extension("json.tmp");
-    std::fs::write(&tmp, json + "\n")
-        .and_then(|()| std::fs::rename(&tmp, &p))
-        .map_err(|e| {
-            let _ = std::fs::remove_file(&tmp);
-            format!("{}: {e}", p.display())
-        })
+    let tmp = staging_file(dir)?;
+    let write = || -> std::io::Result<()> {
+        use std::io::Write;
+        let mut f = std::fs::OpenOptions::new().write(true).open(&tmp)?;
+        f.write_all((json + "\n").as_bytes())?;
+        f.sync_all()?;
+        std::fs::rename(&tmp, &p)
+    };
+    write().map_err(|e| {
+        let _ = std::fs::remove_file(&tmp);
+        format!("{}: {e}", p.display())
+    })
+}
+
+/// A new, empty staging file in `dir`, created exclusively, so two saves (say from two open
+/// windows) never share one. The leading dot and `.tmp` keep it out of [`list`].
+fn staging_file(dir: &Path) -> Result<PathBuf, String> {
+    use std::sync::atomic::{AtomicU64, Ordering};
+    static NEXT: AtomicU64 = AtomicU64::new(0);
+    let nanos = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map_or(0, |d| d.as_nanos());
+    for _ in 0..16 {
+        let n = NEXT.fetch_add(1, Ordering::Relaxed);
+        let tmp = dir.join(format!(".profile-{}-{nanos}-{n}.tmp", std::process::id()));
+        match std::fs::OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .open(&tmp)
+        {
+            Ok(_) => return Ok(tmp),
+            Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => continue,
+            Err(e) => return Err(format!("{}: {e}", tmp.display())),
+        }
+    }
+    Err(format!(
+        "{}: could not create a staging file",
+        dir.display()
+    ))
 }
 
 pub fn load(dir: &Path, name: &str) -> Result<Settings, String> {
@@ -187,6 +219,57 @@ mod tests {
             (s.method, s.colors, s.contrast),
             (d.method, d.colors, d.contrast)
         );
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn partial_pixeloe_options_keep_gui_defaults() {
+        let dir = temp_dir("partial-oe");
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(
+            dir.join("oe.json"),
+            r#"{"version": 1, "settings": {"method": "pixeloe", "size": 48, "oe": {"thickness": 1}}}"#,
+        )
+        .unwrap();
+        let s = load(&dir, "oe").unwrap();
+        let d = Settings::default().oe;
+        assert_eq!(s.oe.thickness, 1);
+        assert_eq!(
+            (s.oe.post_upscale, s.oe.post_match, s.oe.dither, s.oe.mode),
+            (d.post_upscale, d.post_match, d.dither, d.mode)
+        );
+        // An explicit value is kept even when it equals the library default.
+        std::fs::write(
+            dir.join("oe2.json"),
+            r#"{"version": 1, "settings": {"oe": {"dither": "ordered", "post_match": true}}}"#,
+        )
+        .unwrap();
+        let s = load(&dir, "oe2").unwrap();
+        assert_eq!((s.oe.dither, s.oe.post_match), (Dither::Ordered, true));
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn saves_leave_no_staging_files() {
+        let dir = temp_dir("staging");
+        for i in 0..3 {
+            save(
+                &dir,
+                "p",
+                &Settings {
+                    size: 40 + i,
+                    ..Settings::default()
+                },
+            )
+            .unwrap();
+        }
+        let names: Vec<_> = std::fs::read_dir(&dir)
+            .unwrap()
+            .flatten()
+            .map(|e| e.file_name())
+            .collect();
+        assert_eq!(names, vec![std::ffi::OsString::from("p.json")]);
+        assert_eq!(load(&dir, "p").unwrap().size, 42);
         let _ = std::fs::remove_dir_all(&dir);
     }
 

@@ -62,7 +62,7 @@ PixelOE:
 ./target/release/pixplusplus art.png -o out.png -s 128 --method pixeloe -k 16    # k-means + dither
 #   --oe-thickness 3  --oe-mode contrast|k-centroid|lanczos|nearest|bilinear|...
 #   --oe-sharpen unsharp|laplacian  --oe-dither ordered|error-diffusion|none  --oe-no-match
-#   --oe-post-match   upstream's colour fix after -k (output then exceeds k colours)
+#   --oe-post-match   upstream's colour fix after -k (output can then exceed k colours)
 ```
 
 Colour controls, for both methods (1 = unchanged):
@@ -85,7 +85,7 @@ Palette (`--palette`, K1):
 
 `-k` is an upper limit. The output adjustments never add colours, though strong settings can
 merge some (saturation and contrast 0 give a single grey). The one exception is PixelOE's
-`--oe-post-match`, which brings back continuous tones and exceeds `-k`.
+`--oe-post-match`, which brings back continuous tones and can exceed `-k`.
 
 Notes:
 

@@ -65,7 +65,9 @@ pub struct Settings {
     /// PixelOE quantises only when `-k` is given (G8).
     pub oe_quantise: bool,
     pub importance: ImportanceSource,
-    /// `--oe-*` options (G9); `quant` and `pixel_size` are set at run time.
+    /// `--oe-*` options (G9); `quant` and `pixel_size` are set at run time. A profile with only
+    /// some of these fields fills the rest from the GUI defaults, not the library's (L1).
+    #[serde(deserialize_with = "oe_over_gui_defaults")]
     pub oe: Options,
     /// `--saturation` under PIA (the solver's palette boost, B5) and under PixelOE (K4). Kept
     /// apart because the defaults differ.
@@ -107,6 +109,24 @@ pub struct RunOutput {
     /// One line for the status bar.
     pub summary: String,
     pub warning: Option<String>,
+}
+
+/// Deserialises `oe` by laying the stored fields over the GUI's defaults (no dither, no
+/// post-upscale, no post-match), so a partial object can't fall back to upstream's.
+fn oe_over_gui_defaults<'de, D: serde::Deserializer<'de>>(d: D) -> Result<Options, D::Error> {
+    use serde::de::Error;
+    use serde::Deserialize;
+    let given = serde_json::Value::deserialize(d)?;
+    let mut merged = serde_json::to_value(Settings::default().oe).map_err(D::Error::custom)?;
+    match (merged.as_object_mut(), given) {
+        (Some(base), serde_json::Value::Object(fields)) => base.extend(fields),
+        (_, other) => {
+            return Err(D::Error::custom(format!(
+                "oe: expected an object, got {other}"
+            )));
+        }
+    }
+    serde_json::from_value(merged).map_err(D::Error::custom)
 }
 
 impl Settings {
