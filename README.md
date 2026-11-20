@@ -36,6 +36,11 @@ Open an image, pick the method, set the size, colour count, saturation and contr
 after the palette) and PixelOE options, run, preview, save. PixelOE defaults to no dithering in
 the GUI. Jobs run on a worker thread, so the window stays responsive.
 
+Settings can be kept as named profiles (Save, Save as…, Load, Delete at the top of the panel).
+Each profile is a JSON file in `~/.config/pixplusplus/profiles` on Linux (`$XDG_CONFIG_HOME`
+if set), `~/Library/Application Support/pixplusplus/profiles` on macOS and
+`%APPDATA%\pixplusplus\profiles` on Windows.
+
 ## CLI
 
 PIA:

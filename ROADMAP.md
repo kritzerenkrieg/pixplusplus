@@ -101,6 +101,10 @@ Goal: outputs keep the source's vivid colours, and saturation and contrast are a
 - [ ] Palette by decimation (K1): `--palette decimate` for both methods (PIA solves larger, then decimates to `-k`). Done when: the output has at most `-k` colours, every palette colour is one of the pre-decimation colours, default outputs are byte-identical to before, and an RGB-vs-Oklab distance comparison on the showcase images is recorded here for the user.
 - [ ] GUI controls (K1, K2, K4): the four colour sliders, a palette choice, and no dither by default under PixelOE. Done when: `cargo clippy --features gui` is clean and an image saved from the GUI matches the CLI output for the same settings. (2026-11-20: K4 sliders and the K2 no-dither default done, with GUI-vs-CLI tests; the palette choice waits for K1.)
 
+## Phase L: GUI profiles (L1)
+
+- [x] Settings profiles (L1): save, save as, load and delete named profiles in the GUI. Done when: unit tests round-trip every setting through a profile file, reject unsafe names, and load a profile with missing fields using the defaults; `cargo clippy --features gui` and `cargo fmt --check` are clean; the default build is unchanged. (2026-11-20: `src/gui/profiles.rs`, 4 tests: round trip of every setting, save replaces, delete, missing fields, unsafe names, newer versions; 33 library + 10 GUI tests pass; clippy and fmt clean; default build has no GUI crates and its outputs are byte-identical.)
+
 ## Cycle: feature and maintenance
 
 No end state. Once the planned phases are done, work repeats this loop. Each turn is a small phase of its own: new decisions first, then tasks.

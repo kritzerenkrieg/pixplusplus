@@ -13,7 +13,8 @@ use std::time::Instant;
 pub const INPUT_FACTOR: f64 = 4.0;
 
 /// The three methods (E8).
-#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "kebab-case")]
 pub enum Method {
     Pia,
     PiaImportance,
@@ -33,7 +34,8 @@ impl Method {
 }
 
 /// Where the importance map comes from (C1, E7).
-#[derive(Clone, PartialEq, Debug)]
+#[derive(Clone, PartialEq, Debug, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "kebab-case")]
 pub enum ImportanceSource {
     /// Spectral-residual saliency, `--importance auto` (E7).
     Auto,
@@ -41,7 +43,10 @@ pub enum ImportanceSource {
     File(PathBuf),
 }
 
-#[derive(Clone, Debug)]
+/// Everything the GUI lets you set; saved as a profile (L1). Missing fields take the defaults,
+/// so older profiles keep loading.
+#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
+#[serde(default)]
 pub struct Settings {
     pub method: Method,
     /// `-s`: output long side.

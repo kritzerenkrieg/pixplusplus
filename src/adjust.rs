@@ -15,7 +15,8 @@ use std::collections::HashMap;
 
 /// One saturation/contrast adjustment. Used twice per run: before the palette is chosen (pre)
 /// and on the final output (post).
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
+#[serde(default)]
 pub struct Adjust {
     /// Chroma multiplier. 1 = unchanged, 0 = grey.
     pub saturation: F,

@@ -6,7 +6,8 @@ use super::outline::{expansion_weight, outline_expansion, Mapping, Normalize};
 use super::sharpen::{laplacian, unsharp};
 use super::Img;
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "kebab-case")]
 pub enum Mode {
     Contrast,
     KCentroid,
@@ -14,21 +15,25 @@ pub enum Mode {
     Interp(Interp),
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "kebab-case")]
 pub enum Sharpen {
     Unsharp,
     Laplacian,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "kebab-case")]
 pub enum Quant {
     Kmeans,
     WeightedKmeans,
     RepeatKmeans,
 }
 
-/// `pixelize` arguments; [`Default`] gives upstream's defaults.
-#[derive(Clone, Debug)]
+/// `pixelize` arguments; [`Default`] gives upstream's defaults. Serialisable for GUI profiles
+/// (L1); missing fields take the defaults.
+#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
+#[serde(default)]
 pub struct Options {
     pub pixel_size: usize,
     pub thickness: usize,

@@ -12,7 +12,8 @@ pub const AVG_SCALE: f32 = 10.0;
 pub const DIST_SCALE: f32 = 3.0;
 
 /// Upstream `weight_mapping` options.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "kebab-case")]
 pub enum Mapping {
     /// "current" (alias "polarity"), the default.
     Current,
@@ -21,7 +22,8 @@ pub enum Mapping {
 }
 
 /// Upstream `weight_normalize` options ("per_image" equals "global" for a single image).
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "kebab-case")]
 pub enum Normalize {
     None,
     Global,

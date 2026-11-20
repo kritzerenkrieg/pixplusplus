@@ -3,6 +3,7 @@
 //! CLI's for the same settings (J2).
 #![cfg_attr(windows, windows_subsystem = "windows")]
 
+mod profiles;
 mod settings;
 
 use eframe::egui;
@@ -68,8 +69,50 @@ enum Status {
     Error(String),
 }
 
+/// Profile state (L1).
+struct Profiles {
+    /// The profiles folder; `None` when the config folder is unknown.
+    dir: Option<PathBuf>,
+    names: Vec<String>,
+    /// The name picked in the list.
+    selected: Option<String>,
+    /// The profile last loaded or saved, and its settings then (for the unsaved-changes mark).
+    current: Option<(String, Settings)>,
+    dialog: Option<Dialog>,
+}
+
+enum Dialog {
+    SaveAs { name: String, error: Option<String> },
+    ConfirmOverwrite(String),
+    ConfirmDelete(String),
+}
+
+impl Profiles {
+    fn new() -> Self {
+        let dir = profiles::default_dir();
+        let names = dir.as_deref().map(profiles::list).unwrap_or_default();
+        Self {
+            dir,
+            names,
+            selected: None,
+            current: None,
+            dialog: None,
+        }
+    }
+
+    fn refresh(&mut self) {
+        self.names = self.dir.as_deref().map(profiles::list).unwrap_or_default();
+        if let Some(s) = &self.selected {
+            if !self.names.contains(s) {
+                self.selected = None;
+            }
+        }
+    }
+}
+
 struct App {
     settings: Settings,
+    profiles: Profiles,
     source: Option<Source>,
     result: Option<Result_>,
     view: View,
@@ -82,6 +125,7 @@ impl Default for App {
     fn default() -> Self {
         Self {
             settings: Settings::default(),
+            profiles: Profiles::new(),
             source: None,
             result: None,
             view: View::Source,
@@ -202,6 +246,238 @@ impl App {
             Ok(()) => Status::Info(format!("Saved {}", path.display())),
             Err(e) => Status::Error(format!("Could not save {}: {e}", path.display())),
         };
+    }
+
+    /// Writes the current settings as profile `name` (overwrite already confirmed).
+    fn save_profile(&mut self, name: &str) {
+        let Some(dir) = self.profiles.dir.clone() else {
+            self.status = Status::Error("No config folder found for profiles.".into());
+            return;
+        };
+        match profiles::save(&dir, name, &self.settings) {
+            Ok(()) => {
+                let name = profiles::check_name(name).unwrap_or(name).to_owned();
+                self.profiles.refresh();
+                self.profiles.selected = Some(name.clone());
+                self.profiles.current = Some((name.clone(), self.settings.clone()));
+                self.status = Status::Info(format!("Saved profile \"{name}\""));
+            }
+            Err(e) => self.status = Status::Error(format!("Could not save the profile: {e}")),
+        }
+    }
+
+    fn load_profile(&mut self, name: &str) {
+        let Some(dir) = self.profiles.dir.clone() else {
+            return;
+        };
+        match profiles::load(&dir, name) {
+            Ok(s) => {
+                self.settings = s.clone();
+                self.profiles.current = Some((name.to_owned(), s));
+                self.status = Status::Info(format!("Loaded profile \"{name}\""));
+            }
+            Err(e) => self.status = Status::Error(format!("Could not load the profile: {e}")),
+        }
+    }
+
+    fn delete_profile(&mut self, name: &str) {
+        let Some(dir) = self.profiles.dir.clone() else {
+            return;
+        };
+        match profiles::delete(&dir, name) {
+            Ok(()) => {
+                if self
+                    .profiles
+                    .current
+                    .as_ref()
+                    .is_some_and(|(n, _)| n == name)
+                {
+                    self.profiles.current = None;
+                }
+                self.profiles.refresh();
+                self.status = Status::Info(format!("Deleted profile \"{name}\""));
+            }
+            Err(e) => self.status = Status::Error(format!("Could not delete the profile: {e}")),
+        }
+    }
+
+    /// The Profile section: pick, load, save, save as, delete (L1).
+    fn profile_ui(&mut self, ui: &mut egui::Ui) {
+        ui.heading("Profile");
+        let Some(dir) = self.profiles.dir.clone() else {
+            ui.label(RichText::new("No config folder found; profiles are off.").weak());
+            return;
+        };
+        let current = match &self.profiles.current {
+            Some((n, saved)) if *saved == self.settings => n.clone(),
+            Some((n, _)) => format!("{n} *"),
+            None => "Unsaved settings".into(),
+        };
+        ui.label(RichText::new(current).strong())
+            .on_hover_text("* = changed since the profile was loaded or saved.");
+
+        let shown = self
+            .profiles
+            .selected
+            .clone()
+            .unwrap_or_else(|| "Choose a profile…".into());
+        ui.horizontal(|ui| {
+            ComboBox::from_id_salt("profiles")
+                .width(150.0)
+                .selected_text(shown)
+                .show_ui(ui, |ui| {
+                    if self.profiles.names.is_empty() {
+                        ui.label(RichText::new("No saved profiles yet").weak());
+                    }
+                    for n in &self.profiles.names {
+                        ui.selectable_value(&mut self.profiles.selected, Some(n.clone()), n);
+                    }
+                })
+                .response
+                .on_hover_text(format!("Profiles live in {}", dir.display()));
+            let picked = self.profiles.selected.clone();
+            if ui
+                .add_enabled(picked.is_some(), egui::Button::new("Load"))
+                .on_hover_text("Replace the current settings with this profile.")
+                .clicked()
+            {
+                if let Some(n) = picked {
+                    self.load_profile(&n);
+                }
+            }
+        });
+        ui.horizontal(|ui| {
+            let target = self.profiles.current.as_ref().map(|(n, _)| n.clone());
+            let save = ui.button("Save").on_hover_text(match &target {
+                Some(n) => format!("Overwrite \"{n}\" with the current settings."),
+                None => "Save the current settings as a new profile.".into(),
+            });
+            if save.clicked() {
+                match target {
+                    Some(n) => self.save_profile(&n),
+                    None => {
+                        self.profiles.dialog = Some(Dialog::SaveAs {
+                            name: String::new(),
+                            error: None,
+                        })
+                    }
+                }
+            }
+            if ui
+                .button("Save as…")
+                .on_hover_text("Save the current settings under a new name.")
+                .clicked()
+            {
+                let name = self
+                    .profiles
+                    .current
+                    .as_ref()
+                    .map(|(n, _)| n.clone())
+                    .unwrap_or_default();
+                self.profiles.dialog = Some(Dialog::SaveAs { name, error: None });
+            }
+            let picked = self.profiles.selected.clone();
+            if ui
+                .add_enabled(picked.is_some(), egui::Button::new("Delete"))
+                .on_hover_text("Delete the profile picked in the list.")
+                .clicked()
+            {
+                if let Some(n) = picked {
+                    self.profiles.dialog = Some(Dialog::ConfirmDelete(n));
+                }
+            }
+        });
+    }
+
+    /// Save-as and confirmation dialogs (L1).
+    fn profile_dialogs(&mut self, ctx: &egui::Context) {
+        let Some(dialog) = self.profiles.dialog.take() else {
+            return;
+        };
+        let Some(dir) = self.profiles.dir.clone() else {
+            return;
+        };
+        let window = |title: &str| {
+            egui::Window::new(title.to_owned())
+                .collapsible(false)
+                .resizable(false)
+                .anchor(egui::Align2::CENTER_CENTER, [0.0, 0.0])
+        };
+        let mut next = None;
+        match dialog {
+            Dialog::SaveAs {
+                mut name,
+                mut error,
+            } => {
+                window("Save profile as").show(ctx, |ui| {
+                    ui.label("Profile name:");
+                    let edit = ui.text_edit_singleline(&mut name);
+                    edit.request_focus();
+                    let enter = edit.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter));
+                    if let Some(e) = &error {
+                        ui.colored_label(Color32::from_rgb(220, 80, 80), e);
+                    }
+                    let (mut ok, mut cancel) = (enter, false);
+                    ui.horizontal(|ui| {
+                        ok |= ui.button("Save").clicked();
+                        cancel = ui.button("Cancel").clicked()
+                            || ui.input(|i| i.key_pressed(egui::Key::Escape));
+                    });
+                    if cancel {
+                        return;
+                    }
+                    if ok {
+                        match profiles::check_name(&name) {
+                            Err(e) => error = Some(e),
+                            Ok(n) if profiles::exists(&dir, n) => {
+                                next = Some(Dialog::ConfirmOverwrite(n.to_owned()));
+                                return;
+                            }
+                            Ok(n) => {
+                                let n = n.to_owned();
+                                self.save_profile(&n);
+                                return;
+                            }
+                        }
+                    }
+                    next = Some(Dialog::SaveAs {
+                        name: name.clone(),
+                        error: error.clone(),
+                    });
+                });
+            }
+            Dialog::ConfirmOverwrite(n) => {
+                window("Replace profile?").show(ctx, |ui| {
+                    ui.label(format!(
+                        "A profile named \"{n}\" already exists. Replace it?"
+                    ));
+                    ui.horizontal(|ui| {
+                        if ui.button("Replace").clicked() {
+                            self.save_profile(&n);
+                        } else if ui.button("Cancel").clicked() {
+                        } else {
+                            next = Some(Dialog::ConfirmOverwrite(n.clone()));
+                        }
+                    });
+                });
+            }
+            Dialog::ConfirmDelete(n) => {
+                window("Delete profile?").show(ctx, |ui| {
+                    ui.label(format!("Delete the profile \"{n}\"? This can't be undone."));
+                    ui.horizontal(|ui| {
+                        if ui.button("Delete").clicked() {
+                            self.delete_profile(&n);
+                        } else if ui.button("Cancel").clicked() {
+                        } else {
+                            next = Some(Dialog::ConfirmDelete(n.clone()));
+                        }
+                    });
+                });
+            }
+        }
+        if self.profiles.dialog.is_none() {
+            self.profiles.dialog = next;
+        }
     }
 
     fn settings_ui(&mut self, ui: &mut egui::Ui) {
@@ -589,9 +865,15 @@ impl eframe::App for App {
             .exact_size(250.0)
             .show(ui, |ui| {
                 egui::ScrollArea::vertical().show(ui, |ui| {
-                    ui.add_enabled_ui(!running, |ui| self.settings_ui(ui));
+                    let modal = self.profiles.dialog.is_some();
+                    ui.add_enabled_ui(!running && !modal, |ui| {
+                        self.profile_ui(ui);
+                        ui.separator();
+                        self.settings_ui(ui);
+                    });
                 });
             });
+        self.profile_dialogs(&ctx);
 
         egui::CentralPanel::default().show(ui, |ui| match self.view {
             View::Result => {

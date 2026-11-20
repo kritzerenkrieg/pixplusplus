@@ -373,7 +373,8 @@ fn error_diffusion(img: &Img, pal: &[[f32; 3]]) -> Img {
     apply_palette(&out, pal)
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "kebab-case")]
 pub enum Dither {
     Ordered,
     ErrorDiffusion,

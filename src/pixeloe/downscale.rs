@@ -330,7 +330,8 @@ pub fn lanczos(img: &Img, oh: usize, ow: usize) -> Img {
 }
 
 /// `F.interpolate` modes that `pixelize` passes through.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "kebab-case")]
 pub enum Interp {
     Nearest,
     NearestExact,
