@@ -262,12 +262,63 @@ impl App {
             });
         }
 
+        ui.separator();
+        colour_ui(ui, s);
+
         if s.method == Method::Pixeloe {
             ui.separator();
             ui.heading("PixelOE");
             pixeloe_ui(ui, s);
         }
     }
+}
+
+/// Saturation and contrast before and after the palette (K4).
+fn colour_ui(ui: &mut egui::Ui, s: &mut Settings) {
+    ui.horizontal(|ui| {
+        ui.heading("Colour");
+        if ui
+            .small_button("Reset")
+            .on_hover_text("Back to the defaults.")
+            .clicked()
+        {
+            let d = Settings::default();
+            (s.pia_saturation, s.oe_saturation) = (d.pia_saturation, d.oe_saturation);
+            (s.contrast, s.pre) = (d.contrast, d.pre);
+        }
+    });
+    let saturation = if s.method == Method::Pixeloe {
+        &mut s.oe_saturation
+    } else {
+        &mut s.pia_saturation
+    };
+    egui::Grid::new("colour")
+        .num_columns(2)
+        .spacing([8.0, 6.0])
+        .show(ui, |ui| {
+            ui.label("Saturation").on_hover_text(
+                "--saturation: chroma of the result. 1 = unchanged, 0 = grey. \
+                 PIA's default 1.1 is the paper's palette boost.",
+            );
+            ui.add(egui::Slider::new(saturation, 0.0..=3.0).step_by(0.05));
+            ui.end_row();
+            ui.label("Contrast").on_hover_text(
+                "--contrast: lightness of the result stretched around its mean. \
+                 Never adds colours.",
+            );
+            ui.add(egui::Slider::new(&mut s.contrast, 0.0..=3.0).step_by(0.05));
+            ui.end_row();
+            ui.label("Pre-saturation").on_hover_text(
+                "--pre-saturation: applied to the input before the palette is chosen, \
+                 so the palette itself picks more (or less) vivid colours.",
+            );
+            ui.add(egui::Slider::new(&mut s.pre.saturation, 0.0..=3.0).step_by(0.05));
+            ui.end_row();
+            ui.label("Pre-contrast")
+                .on_hover_text("--pre-contrast: input contrast before the palette is chosen.");
+            ui.add(egui::Slider::new(&mut s.pre.contrast, 0.0..=3.0).step_by(0.05));
+            ui.end_row();
+        });
 }
 
 fn combo<T: PartialEq + Copy>(ui: &mut egui::Ui, id: &str, value: &mut T, items: &[(T, &str)]) {

@@ -3,9 +3,9 @@
 
 use image::RgbImage;
 use pixplusplus::job::{output_size, pia_image, pixeloe_defaults, pixeloe_image, Importance};
+use pixplusplus::pixeloe::color::Dither;
 use pixplusplus::pixeloe::pipeline::Options;
-use pixplusplus::ColorAdjust;
-use pixplusplus::Params;
+use pixplusplus::{Adjust, ColorAdjust, Params, F};
 use std::path::PathBuf;
 use std::time::Instant;
 
@@ -53,6 +53,14 @@ pub struct Settings {
     pub importance: ImportanceSource,
     /// `--oe-*` options (G9); `quant` and `pixel_size` are set at run time.
     pub oe: Options,
+    /// `--saturation` under PIA (the solver's palette boost, B5) and under PixelOE (K4). Kept
+    /// apart because the defaults differ.
+    pub pia_saturation: F,
+    pub oe_saturation: F,
+    /// `--contrast` (K4).
+    pub contrast: F,
+    /// `--pre-saturation`, `--pre-contrast` (K4).
+    pub pre: Adjust,
 }
 
 impl Default for Settings {
@@ -64,7 +72,15 @@ impl Default for Settings {
             colors: 16,
             oe_quantise: false,
             importance: ImportanceSource::Auto,
-            oe: pixeloe_defaults(),
+            // K2: the GUI defaults PixelOE to no dither; the CLI keeps upstream's ordered dither.
+            oe: Options {
+                dither: Dither::None,
+                ..pixeloe_defaults()
+            },
+            pia_saturation: 1.1,
+            oe_saturation: 1.0,
+            contrast: 1.0,
+            pre: Adjust::default(),
         }
     }
 }
@@ -77,6 +93,21 @@ pub struct RunOutput {
 }
 
 impl Settings {
+    /// The K4 adjustments for this method (`--pre-*`, `--contrast`, PixelOE `--saturation`).
+    fn color_adjust(&self) -> ColorAdjust {
+        ColorAdjust {
+            pre: self.pre,
+            post: Adjust {
+                saturation: if self.method == Method::Pixeloe {
+                    self.oe_saturation
+                } else {
+                    1.0
+                },
+                contrast: self.contrast,
+            },
+        }
+    }
+
     /// Same as `pixplusplus <input> -s size -k colors [--importance ...] [--method pixeloe ...]`.
     pub fn run(&self, img: RgbImage) -> Result<RunOutput, String> {
         let t = Instant::now();
@@ -92,7 +123,7 @@ impl Settings {
                 self.size,
                 INPUT_FACTOR,
                 o,
-                &ColorAdjust::default(),
+                &self.color_adjust(),
             );
             let summary = format!(
                 "PixelOE  {}x{} → {}x{}  pixel size {}  {} colours  {:.2} s",
@@ -119,13 +150,9 @@ impl Settings {
             ),
             _ => Importance::None,
         };
-        let r = pia_image(
-            img,
-            Params::new(ow, oh, self.colors),
-            INPUT_FACTOR,
-            &importance,
-            &ColorAdjust::default(),
-        );
+        let mut params = Params::new(ow, oh, self.colors);
+        params.saturation = self.pia_saturation;
+        let r = pia_image(img, params, INPUT_FACTOR, &importance, &self.color_adjust());
         let s = &r.output.stats;
         let summary = format!(
             "{}  {}x{} → {}x{}  {} colours  {} iterations  {:.2} s",
@@ -189,15 +216,53 @@ mod tests {
 
     #[test]
     fn pixeloe_matches_cli() {
-        // -s 48 -k 8 --method pixeloe
-        let s = Settings {
+        // -s 48 -k 8 --method pixeloe (the CLI dithers by default; the GUI does not, K2)
+        let mut s = Settings {
             method: Method::Pixeloe,
             size: 48,
             colors: 8,
             oe_quantise: true,
             ..Settings::default()
         };
+        s.oe.dither = Dither::Ordered;
         check(s, "pixeloe_s48_k8.png");
+    }
+
+    #[test]
+    fn pia_colour_controls_match_cli() {
+        // -s 48 -k 8 --saturation 1.4 --contrast 1.2 --pre-saturation 1.3 --pre-contrast 0.9
+        let s = Settings {
+            size: 48,
+            colors: 8,
+            pia_saturation: 1.4,
+            contrast: 1.2,
+            pre: Adjust {
+                saturation: 1.3,
+                contrast: 0.9,
+            },
+            ..Settings::default()
+        };
+        check(s, "pia_s48_k8_colour.png");
+    }
+
+    #[test]
+    fn pixeloe_colour_controls_match_cli() {
+        // -s 48 -k 8 --method pixeloe --oe-dither none --saturation 1.5 --contrast 1.2
+        //   --pre-saturation 1.3 --pre-contrast 1.1
+        let s = Settings {
+            method: Method::Pixeloe,
+            size: 48,
+            colors: 8,
+            oe_quantise: true,
+            oe_saturation: 1.5,
+            contrast: 1.2,
+            pre: Adjust {
+                saturation: 1.3,
+                contrast: 1.1,
+            },
+            ..Settings::default()
+        };
+        check(s, "pixeloe_s48_k8_colour.png");
     }
 
     #[test]
@@ -209,7 +274,6 @@ mod tests {
             ..Settings::default()
         };
         s.oe.mode = pixplusplus::pixeloe::pipeline::Mode::KCentroid;
-        s.oe.dither = pixplusplus::pixeloe::color::Dither::None;
         check(s, "pixeloe_kc_s48.png");
     }
 }

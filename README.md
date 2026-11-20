@@ -32,8 +32,9 @@ and targets Linux, Windows and macOS.
 ./target/release/pixplusplus-gui
 ```
 
-Open an image, pick the method, set the size, colour count and PixelOE options, run, preview,
-save. Jobs run on a worker thread, so the window stays responsive.
+Open an image, pick the method, set the size, colour count, saturation and contrast (before and
+after the palette) and PixelOE options, run, preview, save. PixelOE defaults to no dithering in
+the GUI. Jobs run on a worker thread, so the window stays responsive.
 
 ## CLI
 
