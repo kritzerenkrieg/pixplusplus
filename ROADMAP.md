@@ -53,7 +53,7 @@ Phases A to C were built before DLAD was adopted, so their B and C rows are stil
 ## Phase E: Post-benchmark features
 
 **Goal:** three methods (E8): base PIA, PIA + importance map, and PixelOE (Phase G). Edge weight cut (E1).
-**Not now:** GUI (E2), palette per material (E3).
+**Not now:** palette per material (E3). GUI moved to Phase J.
 
 - [x] Format once (E4): `cargo fmt` in a formatting-only commit, and add `cargo fmt --check` to the verification commands in `AGENTS.md`. Done when: `cargo fmt --check` is clean and `cargo test` passes. (2026-11-17: outputs byte-identical after formatting.) Each feature that is kept may get its own letter.
 
@@ -83,6 +83,15 @@ Phases A to C were built before DLAD was adopted, so their B and C rows are stil
 ## Phase I: Any output size (I1)
 
 - [x] Cap the PIA output grid at the input size, with a warning (I1). Done when: a 100×80 input at `-s 128` runs with a warning and the smoke output is unchanged. (2026-11-18: capped to 100×80 with a warning; smoke md5 unchanged.)
+
+## Phase J: Native GUI (J1–J6)
+
+**Goal:** a native desktop app on Linux, Windows and macOS (J5) that runs the three methods (E8) with the same output as the CLI.
+**Exit:** `cargo build --release --features gui` gives a `pixplusplus-gui` that opens, runs and saves an image with each method; the default build is unchanged.
+
+- [ ] Shared glue (J2): move the image-in, image-out code from `main.rs` into a library module used by the CLI. Done when: `cargo test`, `cargo clippy` and `cargo fmt --check` pass, and the smoke, `--importance auto`, `--pyxeled-compat` and `--method pixeloe -k 16` outputs are byte-identical to before.
+- [ ] GUI binary (J1–J4, J6): `pixplusplus-gui` behind the `gui` feature: open, method and settings, run on a worker thread with a spinner, preview, save. Done when: `cargo build --release --features gui` and `cargo clippy --features gui` are clean, the default `cargo build` pulls no GUI crates, and an image saved from the GUI matches the CLI output for the same settings.
+- [ ] Multiplatform builds (J5, Q1). Done when: Windows and macOS builds pass (CI or a remote machine), once Q1 is Decided.
 
 ## Cycle: feature and maintenance
 

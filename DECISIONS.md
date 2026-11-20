@@ -4,7 +4,7 @@ Source of truth: overrules `ARCHITECTURE.md` and `ROADMAP.md`. A code is the roa
 
 **Status:** **Decided**: binding, with the reason in a few words. **Inspect**: research or a spike first. **TBD**: ask, don't guess. **Question**: not yet read by the human, so treat it as TBD.
 
-**Phases:** A Foundations (done), B Core solver and parity (done), C Controls and harness (done), D Benchmark run and report (done), E Post-benchmark features, G PixelOE in Rust. Letter F is unused.
+**Phases:** A Foundations (done), B Core solver and parity (done), C Controls and harness (done), D Benchmark run and report (done), E Post-benchmark features, G PixelOE in Rust, H PixelOE speed, I Any output size, J Native GUI. Letter F is unused.
 
 **Scope:** Pix++ only. The rows `C3`, `C4` and `D1`–`D4` were research work (benchmark design, verdict, raters) and are retired; their codes stay so old citations resolve.
 
@@ -12,8 +12,9 @@ Source of truth: overrules `ARCHITECTURE.md` and `ROADMAP.md`. A code is the roa
 
 - **Methods (E8):** base PIA (default), PIA + importance map (`--importance FILE|auto`), PixelOE (`--method pixeloe`, to be ported).
 - **Next work:** cut the edge weight (E1), format once (E4), `--importance auto` (E7), then the PixelOE port (Phase G, G1–G4).
-- **Open:** nothing.
-- **Not now:** GUI (E2), palette per material (E3). PIA solver stays as is (E5).
+- **Next work:** native GUI (Phase J, J1–J6).
+- **Open:** Q1 (CI for the Windows and macOS builds).
+- **Not now:** palette per material (E3). PIA solver stays as is (E5).
 
 | Code | Topic | Status | Decision / Question |
 |---|---|---|---|
@@ -38,7 +39,7 @@ Source of truth: overrules `ARCHITECTURE.md` and `ROADMAP.md`. A code is the roa
 | D3 | Quality and speed targets | Decided | Retired: research work, out of scope for this repo. Code kept so old citations resolve. |
 | D4 | Raters | Decided | Retired: research work, out of scope for this repo. Code kept so old citations resolve. |
 | E1 | Edge weight | Decided | Cut: remove `--edge-weight` and its cost term (C2). Judged bad on the 2026-11-17 showcase, no objective gain over PIA. User choice. |
-| E2 | GUI (egui) | Decided | Not now. Raise again as a new row if wanted. User choice. |
+| E2 | GUI (egui) | Decided | Not now. Raise again as a new row if wanted. User choice. Superseded by J1–J6 (2026-11-18). |
 | E3 | Palette per material | Decided | Not now. Raise again as a new row if wanted. User choice. |
 | E4 | rustfmt | Decided | Format the whole crate once in its own commit, then enforce `cargo fmt --check`. User choice. |
 | E5 | PIA solver | Decided | Good as is. No solver changes planned; B6 and B7 stay accepted. User choice. |
@@ -57,3 +58,10 @@ Source of truth: overrules `ARCHITECTURE.md` and `ROADMAP.md`. A code is the roa
 | G10 | PixelOE `-k` is a hard limit | Decided | Upstream runs `match_color(quantised, down)` after k-means, which brings back continuous tones (568 colours at `-k 16` on the smoke image). Pix++ skips that step by default, so the output has ≤ N colours like PIA (B4). `--oe-post-match` restores upstream; the parity check uses it. The library `Options::default()` stays upstream. User choice (2026-11-18). |
 | G11 | PixelOE speed | Decided | New phase H: parallelise the per-pixel PixelOE stages with rayon and make the medians faster. Output must stay byte-identical to the current port (fixtures and parity script). Target: faster than torch at 512 on the same machine (6.0 s, 6 threads). User choice (2026-11-18). |
 | I1 | Output larger than input | Decided | PIA used to crash when the output grid exceeded the input. Now the grid is scaled down (aspect kept) to fit inside the input, with a warning on stderr. Inputs are never enlarged. PIA only; PixelOE keeps G7 (input resized to 4× the output). User choice (2026-11-18). |
+| J1 | GUI toolkit | Decided | egui/eframe: pure Rust, immediate mode, the original E2 choice, runs on Linux, Windows and macOS (J5). Accepted by user (2026-11-18). |
+| J2 | GUI packaging | Decided | A second binary `pixplusplus-gui` in this crate behind a `gui` cargo feature, so the default CLI build gains no dependencies. CLI and GUI share one library module for the image-in, image-out glue, so they produce the same output for the same settings. Accepted by user (2026-11-18). |
+| J3 | GUI v1 scope | Decided | Open an image, pick the method (PIA, PIA + importance, PixelOE; E8), set `-s`, `-k` and the `--oe-*` options (G9), preview, save. Before/after compare, palette view and hand-painted importance maps are not in v1; raise them as new rows if wanted. Accepted by user (2026-11-18). |
+| J4 | GUI progress and cancel | Decided | v1 runs the job on a worker thread with a spinner; no progress hook or cancel in the solver API. Accepted by user (2026-11-18). |
+| J5 | GUI platforms | Decided | Fully multiplatform: Linux, Windows and macOS are all first-class targets. User choice (2026-11-18). |
+| J6 | GUI dependencies | Decided | `eframe` (with `egui`) and `rfd` for native file dialogs, both optional behind the `gui` feature (J2). Windows and macOS builds run in CI or on a remote machine, not this laptop (A5). Accepted by user (2026-11-18). |
+| Q1 | CI for multiplatform builds | Question | J5 needs Windows and macOS builds that this laptop can't make. Agent proposal: a GitHub Actions workflow (ubuntu, windows, macos runners) running `cargo build --release --features gui`, `cargo test` and `cargo clippy`. It runs on GitHub, so it needs approval before it is pushed. |

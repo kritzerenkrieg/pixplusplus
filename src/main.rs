@@ -1,11 +1,13 @@
 use clap::Parser;
-use image::{imageops::FilterType, GrayImage, RgbImage};
+use image::RgbImage;
+use pixplusplus::job::{
+    output_size, pia_image, pixeloe_defaults, pixeloe_image, upscale, Importance,
+};
 use pixplusplus::pixeloe::color::Dither;
 use pixplusplus::pixeloe::downscale::Interp;
 use pixplusplus::pixeloe::outline::{Mapping, Normalize};
-use pixplusplus::pixeloe::pipeline::{pixelize, Mode, Options, Quant, Sharpen};
-use pixplusplus::pixeloe::Img;
-use pixplusplus::{peak_rss_kib, run, spectral_residual, Input, Params, Space, Stats, F};
+use pixplusplus::pixeloe::pipeline::{Mode, Options, Quant, Sharpen};
+use pixplusplus::{peak_rss_kib, Params, Space, Stats, F};
 use std::path::PathBuf;
 use std::time::Instant;
 
@@ -161,7 +163,7 @@ impl Cli {
     }
 
     fn pixeloe_options(&self, pixel_size: usize) -> Options {
-        let d = Options::default();
+        let d = pixeloe_defaults();
         Options {
             pixel_size,
             thickness: self.oe_thickness.unwrap_or(d.thickness),
@@ -218,14 +220,6 @@ enum SpaceArg {
     Cielab,
 }
 
-fn load_gray(path: &PathBuf, w: u32, h: u32) -> Result<Vec<F>, Box<dyn std::error::Error>> {
-    let mut g: GrayImage = image::open(path)?.to_luma8();
-    if g.dimensions() != (w, h) {
-        g = image::imageops::resize(&g, w, h, FilterType::Triangle);
-    }
-    Ok(g.pixels().map(|p| p.0[0] as F / 255.0).collect())
-}
-
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let cli = Cli::parse();
     match cli.method {
@@ -243,54 +237,19 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             .build_global()?;
     }
     let t_wall = Instant::now();
-    let mut img: RgbImage = image::open(&cli.input)?.to_rgb8();
+    let img: RgbImage = image::open(&cli.input)?.to_rgb8();
     let (iw, ih) = img.dimensions();
-
-    let (ow, oh) = match (cli.width, cli.height) {
-        (Some(w), Some(h)) => (w, h),
-        _ => {
-            let s = cli.size as f64;
-            if iw >= ih {
-                (
-                    cli.size,
-                    ((ih as f64 * s / iw as f64).round() as usize).max(1),
-                )
-            } else {
-                (
-                    ((iw as f64 * s / ih as f64).round() as usize).max(1),
-                    cli.size,
-                )
-            }
-        }
-    };
+    let (ow, oh) = output_size(iw, ih, cli.size, cli.width, cli.height);
 
     if cli.method == MethodArg::Pixeloe {
         return run_pixeloe(&cli, img, ow, oh, t_wall);
     }
 
-    if cli.input_factor > 0.0 {
-        let f = cli.input_factor;
-        let (mw, mh) = (
-            (ow as f64 * f).round() as u32,
-            (oh as f64 * f).round() as u32,
-        );
-        if iw > mw || ih > mh {
-            img = image::imageops::resize(&img, mw, mh, FilterType::Lanczos3);
-        }
-    }
-    let (w, h) = img.dimensions();
-    let (ow, oh) = cap_output(ow, oh, w as usize, h as usize);
-    let rgb: Vec<[F; 3]> = img.pixels().map(|p| p.0.map(|v| v as F / 255.0)).collect();
     let importance = match cli.importance.as_ref() {
-        None => None,
-        Some(p) if p.as_os_str() == "auto" => {
-            let rgb8: Vec<[u8; 3]> = img.pixels().map(|p| p.0).collect();
-            let map = spectral_residual(&rgb8, w as usize, h as usize);
-            Some(map.iter().map(|&v| v as F / 255.0).collect::<Vec<F>>())
-        }
-        Some(p) => Some(load_gray(p, w, h)?),
+        None => Importance::None,
+        Some(p) if p.as_os_str() == "auto" => Importance::Auto,
+        Some(p) => Importance::Map(image::open(p)?.to_luma8()),
     };
-
     let mut p = Params::new(ow, oh, cli.colors.unwrap_or(16));
     p.space = match cli.space {
         SpaceArg::Oklab => Space::Oklab,
@@ -302,26 +261,20 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     p.max_iters = cli.max_iters;
     p.pyxeled_compat = cli.pyxeled_compat;
 
-    let input = Input {
-        width: w as usize,
-        height: h as usize,
-        rgb: &rgb,
-        importance: importance.as_deref(),
-    };
-    let out = run(&input, &p);
-
-    let png = RgbImage::from_raw(out.width as u32, out.height as u32, out.rgb8()).unwrap();
+    let r = pia_image(img, p, cli.input_factor, &importance);
+    if let Some(w) = &r.warning {
+        eprintln!("warning: {w}");
+    }
+    let (out, p, png) = (&r.output, &r.params, &r.image);
     png.save(&cli.output)?;
     if let Some(f) = cli.preview {
-        let big =
-            image::imageops::resize(&png, png.width() * f, png.height() * f, FilterType::Nearest);
-        big.save(cli.output.with_extension(format!("x{f}.png")))?;
+        upscale(png, f).save(cli.output.with_extension(format!("x{f}.png")))?;
     }
 
     let s = &out.stats;
     eprintln!(
         "{}x{} -> {}x{}  K={}  iters={} (T-steps {}){}  solve {:.0} ms  [assign {:.0} | accum {:.0} | smooth {:.0} | mcda {:.0}]  peak RSS {} MiB",
-        w, h, out.width, out.height, s.palette_size, s.iterations, s.temperature_steps,
+        r.input_w, r.input_h, out.width, out.height, s.palette_size, s.iterations, s.temperature_steps,
         if s.hit_max_iters { " HIT MAX_ITERS" } else { "" },
         s.timings.total_ms, s.timings.assign_ms, s.timings.accumulate_ms, s.timings.smooth_ms, s.timings.associate_ms,
         peak_rss_kib().unwrap_or(0) / 1024
@@ -341,94 +294,52 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-/// I1: PIA needs at least one input pixel per output pixel. An output grid larger than the
-/// input is scaled down (aspect kept) to fit inside it, with a warning.
-fn cap_output(ow: usize, oh: usize, w: usize, h: usize) -> (usize, usize) {
-    if ow <= w && oh <= h {
-        return (ow, oh);
-    }
-    let f = (w as f64 / ow as f64).min(h as f64 / oh as f64);
-    let (cw, ch) = (
-        ((ow as f64 * f).round() as usize).clamp(1, w),
-        ((oh as f64 * f).round() as usize).clamp(1, h),
-    );
-    eprintln!("warning: output {ow}x{oh} exceeds the {w}x{h} input; capped to {cw}x{ch} (I1)");
-    (cw, ch)
-}
-
 /// `--method pixeloe` (G4, G7, G8): same output files and `--stats` keys as PIA.
 fn run_pixeloe(
     cli: &Cli,
-    mut img: RgbImage,
+    img: RgbImage,
     ow: usize,
     oh: usize,
     t_wall: Instant,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    let (iw, ih) = img.dimensions();
-    let ps = if cli.input_factor > 0.0 {
-        let ps = (cli.input_factor.round() as usize).max(1);
-        let (tw, th) = ((ow * ps) as u32, (oh * ps) as u32);
-        if (iw, ih) != (tw, th) {
-            img = image::imageops::resize(&img, tw, th, FilterType::Lanczos3);
-        }
-        ps
-    } else {
-        ((iw.max(ih) as f64 / cli.size as f64).round() as usize).max(1)
-    };
-    let (w, h) = (img.width() as usize, img.height() as usize);
-    let n = w * h;
-    let mut data = vec![0.0f32; 3 * n];
-    for (i, p) in img.pixels().enumerate() {
-        for c in 0..3 {
-            data[c * n + i] = p.0[c] as f32 / 255.0;
-        }
-    }
-    let opts = cli.pixeloe_options(ps);
-    let t = Instant::now();
-    let out = pixelize(&Img::from_vec(3, h, w, data), &opts);
-    let total_ms = t.elapsed().as_secs_f64() * 1000.0;
-
-    let m = out.h * out.w;
-    let rgb8: Vec<u8> = (0..m)
-        .flat_map(|i| (0..3).map(move |c| (c, i)))
-        .map(|(c, i)| (out.data[c * m + i].clamp(0.0, 1.0) * 255.0).round() as u8)
-        .collect();
-    let mut palette: Vec<[u8; 3]> = rgb8.as_chunks::<3>().0.to_vec();
-    palette.sort_unstable();
-    palette.dedup();
-
-    let png = RgbImage::from_raw(out.w as u32, out.h as u32, rgb8).unwrap();
+    let r = pixeloe_image(
+        img,
+        ow,
+        oh,
+        cli.size,
+        cli.input_factor,
+        cli.pixeloe_options(0),
+    );
+    let (png, opts, palette) = (&r.image, &r.options, &r.palette);
     png.save(&cli.output)?;
     if let Some(f) = cli.preview {
-        let big =
-            image::imageops::resize(&png, png.width() * f, png.height() * f, FilterType::Nearest);
-        big.save(cli.output.with_extension(format!("x{f}.png")))?;
+        upscale(png, f).save(cli.output.with_extension(format!("x{f}.png")))?;
     }
     eprintln!(
         "pixeloe {}x{} -> {}x{}  pixel size {}  colours {}  solve {:.0} ms  peak RSS {} MiB",
-        w,
-        h,
-        out.w,
-        out.h,
-        ps,
+        r.input_w,
+        r.input_h,
+        png.width(),
+        png.height(),
+        opts.pixel_size,
         palette.len(),
-        total_ms,
+        r.solve_ms,
         peak_rss_kib().unwrap_or(0) / 1024
     );
 
     if let Some(path) = &cli.stats {
         let mut s = Stats {
             palette_size: palette.len(),
-            input_w: w,
-            input_h: h,
+            input_w: r.input_w,
+            input_h: r.input_h,
             ..Stats::default()
         };
-        s.timings.total_ms = total_ms;
+        s.timings.total_ms = r.solve_ms;
         let j = serde_json::json!({
             "params": {
                 "method": "pixeloe",
-                "width": out.w,
-                "height": out.h,
+                "width": png.width(),
+                "height": png.height(),
                 "pixel_size": opts.pixel_size,
                 "thickness": opts.thickness,
                 "mode": format!("{:?}", opts.mode),
@@ -451,17 +362,4 @@ fn run_pixeloe(
         std::fs::write(path, serde_json::to_string_pretty(&j)?)?;
     }
     Ok(())
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn cap_output_fits_inside_input() {
-        assert_eq!(cap_output(128, 102, 100, 80), (100, 80));
-        assert_eq!(cap_output(50, 300, 100, 80), (13, 80));
-        assert_eq!(cap_output(100, 80, 100, 80), (100, 80));
-        assert_eq!(cap_output(16, 9, 1, 1), (1, 1));
-    }
 }

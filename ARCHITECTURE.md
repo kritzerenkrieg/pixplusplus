@@ -22,7 +22,7 @@ Turns concept art into pixel art with a hard palette limit, using Pixelated Imag
 
 **Non-goals**
 - GPU or ML methods.
-- A GUI, for now (E2).
+- A GUI, until Phase J is Decided (J1–J6).
 
 ## B. Context
 
