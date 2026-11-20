@@ -33,9 +33,10 @@ struct Cli {
     /// Palette size (hard limit). PIA default 16; PixelOE quantises only when given (G8).
     #[arg(short = 'k', long)]
     colors: Option<usize>,
-    /// How the -k palette is made (K1). `native`: the method's own (PIA's solver, PixelOE's
-    /// k-means). `decimate`: merge the closest colours (RGB), keeping the more common one,
-    /// then map each pixel to its nearest colour, no dither. Under PixelOE it needs -k.
+    /// How the -k palette is made (K1, K5). `native`: the method's own (PIA's solver, PixelOE's
+    /// k-means). `decimate-oklab` / `decimate-rgb`: merge the closest colours, measured in
+    /// Oklab or RGB, keeping the more common one, then map each pixel to its nearest colour, no
+    /// dither. Under PixelOE they need -k.
     #[arg(long, value_enum, default_value_t = PaletteArg::Native)]
     palette: PaletteArg,
     /// Downscale the input so it is at most this many times the output (0 = use input as is).
@@ -118,13 +119,18 @@ struct Cli {
 #[derive(clap::ValueEnum, Clone, Copy, Debug, PartialEq, Eq)]
 enum PaletteArg {
     Native,
-    Decimate,
+    DecimateOklab,
+    DecimateRgb,
 }
 
 impl PaletteArg {
-    /// K1: decimation measures distance in RGB, the user's proposal.
+    /// K5: decimation in Oklab or RGB; `None` = the method's own palette.
     fn distance(self) -> Option<Distance> {
-        (self == PaletteArg::Decimate).then_some(Distance::Rgb)
+        match self {
+            PaletteArg::Native => None,
+            PaletteArg::DecimateOklab => Some(Distance::Oklab),
+            PaletteArg::DecimateRgb => Some(Distance::Rgb),
+        }
     }
 }
 
@@ -292,12 +298,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
         _ => {}
     }
-    if cli.palette == PaletteArg::Decimate {
+    if cli.palette != PaletteArg::Native {
         if cli.pyxeled_compat {
-            return Err("--palette decimate can't be combined with --pyxeled-compat (A4)".into());
+            return Err("--palette decimate-* can't be combined with --pyxeled-compat (A4)".into());
         }
         if cli.method == MethodArg::Pixeloe && cli.colors.is_none() {
-            return Err("--palette decimate needs -k under --method pixeloe (G8)".into());
+            return Err("--palette decimate-* needs -k under --method pixeloe (G8)".into());
         }
     }
     if let Some(t) = cli.threads {

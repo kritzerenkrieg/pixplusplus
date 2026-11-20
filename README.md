@@ -74,13 +74,16 @@ Colour controls, for both methods (1 = unchanged):
 #   --pre-contrast 1.2     so the palette itself picks more vivid or contrasty colours
 ```
 
-Palette (`--palette`, K1):
+Palette (`--palette`, K1, K5):
 
 ```sh
-#   --palette native     the method's own palette (default): PIA's solver, PixelOE's k-means
-#   --palette decimate   merge the closest colours, keeping the more common one, then map each
-#                        pixel to its nearest colour with no dither; keeps small vivid colours
-#                        that averaging would grey out (PixelOE: needs -k; PIA: about 3x slower)
+#   --palette native           the method's own palette (default): PIA's solver, PixelOE's k-means
+#   --palette decimate-oklab   merge the closest colours, keeping the more common one, then map
+#   --palette decimate-rgb     each pixel to its nearest colour with no dither; keeps small vivid
+#                              colours that averaging would grey out. Oklab measures closeness as
+#                              the eye sees it (cleaner, lowest error on the showcase images); RGB
+#                              keeps the most vivid colours but can leave stray bright pixels.
+#                              PixelOE: needs -k. PIA: about 3x slower.
 ```
 
 `-k` is an upper limit. The output adjustments never add colours, though strong settings can

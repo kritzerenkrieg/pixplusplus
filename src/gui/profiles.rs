@@ -274,6 +274,22 @@ mod tests {
     }
 
     #[test]
+    fn old_decimate_value_loads_as_rgb() {
+        let dir = temp_dir("old-decimate");
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(
+            dir.join("d.json"),
+            r#"{"version": 1, "settings": {"palette": "decimate"}}"#,
+        )
+        .unwrap();
+        assert_eq!(
+            load(&dir, "d").unwrap().palette,
+            crate::settings::PaletteChoice::DecimateRgb
+        );
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
     fn rejects_unsafe_names() {
         for bad in [
             "",

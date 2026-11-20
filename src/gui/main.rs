@@ -518,8 +518,10 @@ impl App {
                 ui.label("Palette").on_hover_text(
                     "--palette. Native: the method's own palette (PIA's solver, PixelOE's \
                      k-means). Decimate: merge the closest colours, keeping the more common \
-                     one, then map each pixel to its nearest colour with no dither. Keeps \
-                     small vivid colours that averaging would grey out.",
+                     one, then map each pixel to its nearest colour with no dither; keeps \
+                     small vivid colours that averaging would grey out. Oklab measures \
+                     closeness as the eye sees it (cleaner); RGB keeps the most vivid \
+                     colours but can leave stray bright pixels.",
                 );
                 ui.add_enabled_ui(limited, |ui| {
                     combo(
@@ -528,7 +530,8 @@ impl App {
                         &mut s.palette,
                         &[
                             (PaletteChoice::Native, "native"),
-                            (PaletteChoice::Decimate, "decimate"),
+                            (PaletteChoice::DecimateOklab, "decimate (Oklab)"),
+                            (PaletteChoice::DecimateRgb, "decimate (RGB)"),
                         ],
                     );
                 });

@@ -34,12 +34,15 @@ impl Method {
     }
 }
 
-/// How the limited palette is made (K1): the method's own, or decimation (RGB distance).
+/// How the limited palette is made (K1, K5): the method's own, or decimation in Oklab or RGB.
 #[derive(Clone, Copy, PartialEq, Eq, Debug, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum PaletteChoice {
     Native,
-    Decimate,
+    DecimateOklab,
+    /// `decimate` is what profiles from the first K1 build wrote; it meant RGB.
+    #[serde(alias = "decimate")]
+    DecimateRgb,
 }
 
 /// Where the importance map comes from (C1, E7).
@@ -130,9 +133,13 @@ fn oe_over_gui_defaults<'de, D: serde::Deserializer<'de>>(d: D) -> Result<Option
 }
 
 impl Settings {
-    /// `--palette decimate` measures distance in RGB (K1).
+    /// `--palette decimate-oklab|decimate-rgb` (K5); `None` = the method's own palette.
     fn decimate(&self) -> Option<Distance> {
-        (self.palette == PaletteChoice::Decimate).then_some(Distance::Rgb)
+        match self.palette {
+            PaletteChoice::Native => None,
+            PaletteChoice::DecimateOklab => Some(Distance::Oklab),
+            PaletteChoice::DecimateRgb => Some(Distance::Rgb),
+        }
     }
 
     /// The K4 adjustments for this method (`--pre-*`, `--contrast`, PixelOE `--saturation`).
@@ -317,28 +324,44 @@ mod tests {
 
     #[test]
     fn pia_decimate_matches_cli() {
-        // -s 48 -k 8 --palette decimate
-        let s = Settings {
-            size: 48,
-            colors: 8,
-            palette: PaletteChoice::Decimate,
-            ..Settings::default()
-        };
-        check(s, "pia_s48_k8_decimate.png");
+        // -s 48 -k 8 --palette decimate-rgb, and decimate-oklab
+        for (palette, file) in [
+            (PaletteChoice::DecimateRgb, "pia_s48_k8_decimate.png"),
+            (
+                PaletteChoice::DecimateOklab,
+                "pia_s48_k8_decimate_oklab.png",
+            ),
+        ] {
+            let s = Settings {
+                size: 48,
+                colors: 8,
+                palette,
+                ..Settings::default()
+            };
+            check(s, file);
+        }
     }
 
     #[test]
     fn pixeloe_decimate_matches_cli() {
-        // -s 48 -k 8 --method pixeloe --palette decimate
-        let s = Settings {
-            method: Method::Pixeloe,
-            size: 48,
-            colors: 8,
-            oe_quantise: true,
-            palette: PaletteChoice::Decimate,
-            ..Settings::default()
-        };
-        check(s, "pixeloe_s48_k8_decimate.png");
+        // -s 48 -k 8 --method pixeloe --palette decimate-rgb, and decimate-oklab
+        for (palette, file) in [
+            (PaletteChoice::DecimateRgb, "pixeloe_s48_k8_decimate.png"),
+            (
+                PaletteChoice::DecimateOklab,
+                "pixeloe_s48_k8_decimate_oklab.png",
+            ),
+        ] {
+            let s = Settings {
+                method: Method::Pixeloe,
+                size: 48,
+                colors: 8,
+                oe_quantise: true,
+                palette,
+                ..Settings::default()
+            };
+            check(s, file);
+        }
     }
 
     #[test]
