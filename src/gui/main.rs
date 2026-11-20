@@ -184,6 +184,14 @@ impl App {
             .is_some_and(|e| e.eq_ignore_ascii_case("png"))
         {
             path.set_extension("png");
+            // The dialog confirmed a different name; don't overwrite a file nobody confirmed.
+            if path.exists() {
+                self.status = Status::Error(format!(
+                    "{} already exists. Pick it in the save dialog to overwrite it.",
+                    path.display()
+                ));
+                return;
+            }
         }
         let img = if self.save_scale > 1 {
             pixplusplus::job::upscale(&res.image, self.save_scale)

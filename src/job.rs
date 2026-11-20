@@ -121,9 +121,15 @@ pub fn pia_image(
         RgbImage::from_raw(output.width as u32, output.height as u32, output.rgb8()).unwrap();
     let map = adjust.post.colour_map(&image);
     if !map.is_empty() {
-        for c in output.palette_srgb.iter_mut() {
+        // Keep both palette representations in step (working space and sRGB).
+        for (c, w) in output
+            .palette_srgb
+            .iter_mut()
+            .zip(output.palette.iter_mut())
+        {
             if let Some(&m) = map.get(c) {
                 *c = m;
+                *w = params.space.from_srgb(m.map(|v| v as F / 255.0));
             }
         }
         image =
@@ -254,6 +260,34 @@ mod tests {
             r.input_h
         );
         assert!(r.params.out_h <= 5);
+    }
+
+    #[test]
+    fn post_adjust_keeps_both_palettes_in_step() {
+        let img = RgbImage::from_fn(64, 40, |x, y| {
+            image::Rgb([200, (x * 3) as u8, (y * 4) as u8])
+        });
+        let adjust = ColorAdjust {
+            post: crate::Adjust {
+                saturation: 0.0,
+                contrast: 1.0,
+            },
+            ..ColorAdjust::default()
+        };
+        let r = pia_image(img, Params::new(16, 10, 4), 4.0, &Importance::None, &adjust);
+        let out = &r.output;
+        for (w, s) in out.palette.iter().zip(&out.palette_srgb) {
+            let back = r
+                .params
+                .space
+                .to_srgb(*w)
+                .map(|v| (v * 255.0).round() as u8);
+            assert_eq!(&back, s);
+            assert!(
+                s.iter().max().unwrap() - s.iter().min().unwrap() <= 1,
+                "{s:?} not grey"
+            );
+        }
     }
 
     #[test]

@@ -69,7 +69,9 @@ Colour controls, for both methods (1 = unchanged):
 #   --pre-contrast 1.2     so the palette itself picks more vivid or contrasty colours
 ```
 
-The output adjustments never add colours, so `-k` stays exact.
+`-k` is an upper limit. The output adjustments never add colours, though strong settings can
+merge some (saturation and contrast 0 give a single grey). The one exception is PixelOE's
+`--oe-post-match`, which brings back continuous tones and exceeds `-k`.
 
 Notes:
 
