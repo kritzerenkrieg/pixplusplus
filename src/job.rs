@@ -1,6 +1,8 @@
 //! Image-in, image-out glue shared by the CLI and the GUI (J2): output size, input resize,
 //! importance map, and both methods (E8) from an `RgbImage` to an `RgbImage`.
 
+use crate::decimate::{self, Distance};
+use crate::pixeloe::color::Dither;
 use crate::pixeloe::pipeline::{pixelize, Options};
 use crate::pixeloe::Img;
 use crate::{run, spectral_residual, ColorAdjust, Input, Output, Params, F};
@@ -65,12 +67,16 @@ pub struct PiaResult {
 /// most `input_factor` × that grid (B3, 0 = off), then the grid is capped at the input (I1).
 /// `adjust.pre` runs on the resized input, `adjust.post` on the output palette (K4); the
 /// solver's own `params.saturation` (B5) is separate and comes first.
+/// With `decimate`, the solver runs at a larger palette ([`decimate::pia_solve_k`]) and the
+/// result is decimated to `params.k_max` colours (K1); `params.k_max` in the result is then the
+/// size that was solved.
 pub fn pia_image(
     mut img: RgbImage,
     mut params: Params,
     input_factor: f64,
     importance: &Importance,
     adjust: &ColorAdjust,
+    decimate: Option<Distance>,
 ) -> PiaResult {
     let (iw, ih) = img.dimensions();
     let (ow, oh) = (params.out_w, params.out_h);
@@ -116,9 +122,34 @@ pub fn pia_image(
         rgb: &rgb,
         importance: imp.as_deref(),
     };
+    let k = params.k_max;
+    if decimate.is_some() {
+        params.k_max = decimate::pia_solve_k(k);
+    }
     let mut output = run(&input, &params);
     let mut image =
         RgbImage::from_raw(output.width as u32, output.height as u32, output.rgb8()).unwrap();
+    if let Some(d) = decimate {
+        // Rebuild labels and both palettes from the decimated colours, so they stay in step.
+        let pal = decimate::palette(&image, k, d);
+        let map = decimate::mapping(&image, &pal, d);
+        let index: std::collections::HashMap<[u8; 3], u32> = pal
+            .iter()
+            .enumerate()
+            .map(|(i, &c)| (c, i as u32))
+            .collect();
+        for l in output.labels.iter_mut() {
+            *l = index[&map[&output.palette_srgb[*l as usize]]];
+        }
+        output.palette = pal
+            .iter()
+            .map(|c| params.space.from_srgb(c.map(|v| v as F / 255.0)))
+            .collect();
+        output.palette_srgb = pal;
+        output.stats.palette_size = output.palette_srgb.len();
+        image =
+            RgbImage::from_raw(output.width as u32, output.height as u32, output.rgb8()).unwrap();
+    }
     let map = adjust.post.colour_map(&image);
     if !map.is_empty() {
         // Keep both palette representations in step (working space and sRGB).
@@ -171,6 +202,8 @@ pub fn pixeloe_defaults() -> Options {
 /// is its rounded value and the input is resized to exactly pixel size × the output; with 0 the
 /// pixel size is round(long side / `size`) on the unresized input. `options.pixel_size` is
 /// overwritten.
+// The CLI and GUI glue: one argument per user-facing choice.
+#[allow(clippy::too_many_arguments)]
 pub fn pixeloe_image(
     mut img: RgbImage,
     ow: usize,
@@ -179,6 +212,7 @@ pub fn pixeloe_image(
     input_factor: f64,
     mut options: Options,
     adjust: &ColorAdjust,
+    decimate: Option<Distance>,
 ) -> PixeloeResult {
     let (iw, ih) = img.dimensions();
     let ps = if input_factor > 0.0 {
@@ -201,9 +235,13 @@ pub fn pixeloe_image(
             data[c * n + i] = p.0[c] as f32 / 255.0;
         }
     }
+    // K1: run unquantised, then decimate to `quant` colours (no dither). Needs `quant` (G8).
+    let decimate_to = decimate.zip(options.quant);
+    if decimate_to.is_some() {
+        options.quant = None;
+    }
     let t = Instant::now();
     let out = pixelize(&Img::from_vec(3, h, w, data), &options);
-    let solve_ms = t.elapsed().as_secs_f64() * 1000.0;
 
     let m = out.h * out.w;
     let rgb8: Vec<u8> = (0..m)
@@ -211,6 +249,12 @@ pub fn pixeloe_image(
         .map(|(c, i)| (out.data[c * m + i].clamp(0.0, 1.0) * 255.0).round() as u8)
         .collect();
     let mut image = RgbImage::from_raw(out.w as u32, out.h as u32, rgb8).unwrap();
+    if let Some((d, k)) = decimate_to {
+        decimate::decimate(&mut image, k, d);
+        options.quant = Some(k);
+        options.dither = Dither::None;
+    }
+    let solve_ms = t.elapsed().as_secs_f64() * 1000.0;
     adjust.post.apply(&mut image);
     let mut palette: Vec<[u8; 3]> = image.as_raw().as_chunks::<3>().0.to_vec();
     palette.sort_unstable();
@@ -252,6 +296,7 @@ mod tests {
             4.0,
             &Importance::None,
             &ColorAdjust::default(),
+            None,
         );
         assert!(
             r.input_w <= 200 && r.input_h <= 5,
@@ -274,7 +319,14 @@ mod tests {
             },
             ..ColorAdjust::default()
         };
-        let r = pia_image(img, Params::new(16, 10, 4), 4.0, &Importance::None, &adjust);
+        let r = pia_image(
+            img,
+            Params::new(16, 10, 4),
+            4.0,
+            &Importance::None,
+            &adjust,
+            None,
+        );
         let out = &r.output;
         for (w, s) in out.palette.iter().zip(&out.palette_srgb) {
             let back = r
@@ -288,6 +340,63 @@ mod tests {
                 "{s:?} not grey"
             );
         }
+    }
+
+    fn test_image() -> RgbImage {
+        RgbImage::from_fn(96, 60, |x, y| {
+            if (50..58).contains(&x) && (20..28).contains(&y) {
+                image::Rgb([235, 30, 40])
+            } else {
+                image::Rgb([(40 + x) as u8, (80 + y * 2) as u8, (150 - x / 2) as u8])
+            }
+        })
+    }
+
+    #[test]
+    fn pia_decimate_keeps_labels_and_palettes_in_step() {
+        let k = 6;
+        let r = pia_image(
+            test_image(),
+            Params::new(24, 15, k),
+            4.0,
+            &Importance::None,
+            &ColorAdjust::default(),
+            Some(Distance::Rgb),
+        );
+        let out = &r.output;
+        assert_eq!(r.params.k_max, decimate::pia_solve_k(k));
+        assert!(out.palette_srgb.len() <= k && out.stats.palette_size == out.palette_srgb.len());
+        assert_eq!(out.palette.len(), out.palette_srgb.len());
+        for (w, s) in out.palette.iter().zip(&out.palette_srgb) {
+            assert_eq!(
+                &r.params
+                    .space
+                    .to_srgb(*w)
+                    .map(|v| (v * 255.0).round() as u8),
+                s
+            );
+        }
+        let colours: std::collections::HashSet<[u8; 3]> = r.image.pixels().map(|p| p.0).collect();
+        assert!(colours.len() <= k);
+        assert!(colours.iter().all(|c| out.palette_srgb.contains(c)));
+    }
+
+    #[test]
+    fn pixeloe_decimate_respects_k() {
+        let mut o = pixeloe_defaults();
+        o.quant = Some(5);
+        let r = pixeloe_image(
+            test_image(),
+            24,
+            15,
+            24,
+            4.0,
+            o,
+            &ColorAdjust::default(),
+            Some(Distance::Oklab),
+        );
+        assert!(r.palette.len() <= 5, "{} colours", r.palette.len());
+        assert_eq!(r.options.quant, Some(5));
     }
 
     #[test]

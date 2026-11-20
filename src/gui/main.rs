@@ -13,7 +13,7 @@ use pixplusplus::pixeloe::color::Dither;
 use pixplusplus::pixeloe::downscale::Interp;
 use pixplusplus::pixeloe::outline::{Mapping, Normalize};
 use pixplusplus::pixeloe::pipeline::{Mode, Quant, Sharpen};
-use settings::{ImportanceSource, Method, RunOutput, Settings};
+use settings::{ImportanceSource, Method, PaletteChoice, RunOutput, Settings};
 use std::path::{Path, PathBuf};
 use std::sync::mpsc::{channel, Receiver};
 use std::sync::Arc;
@@ -512,6 +512,26 @@ impl App {
                         .on_hover_text("-k: palette size, a hard limit (B4).");
                     ui.add(egui::DragValue::new(&mut s.colors).range(2..=256));
                 }
+                ui.end_row();
+
+                let limited = s.method != Method::Pixeloe || s.oe_quantise;
+                ui.label("Palette").on_hover_text(
+                    "--palette. Native: the method's own palette (PIA's solver, PixelOE's \
+                     k-means). Decimate: merge the closest colours, keeping the more common \
+                     one, then map each pixel to its nearest colour with no dither. Keeps \
+                     small vivid colours that averaging would grey out.",
+                );
+                ui.add_enabled_ui(limited, |ui| {
+                    combo(
+                        ui,
+                        "palette",
+                        &mut s.palette,
+                        &[
+                            (PaletteChoice::Native, "native"),
+                            (PaletteChoice::Decimate, "decimate"),
+                        ],
+                    );
+                });
                 ui.end_row();
             });
 

@@ -2,6 +2,7 @@
 //! (`pixplusplus::job`, J2). Settings the GUI doesn't show keep the CLI defaults.
 
 use image::RgbImage;
+use pixplusplus::decimate::Distance;
 use pixplusplus::job::{output_size, pia_image, pixeloe_defaults, pixeloe_image, Importance};
 use pixplusplus::pixeloe::color::Dither;
 use pixplusplus::pixeloe::pipeline::Options;
@@ -31,6 +32,14 @@ impl Method {
             Method::Pixeloe => "PixelOE",
         }
     }
+}
+
+/// How the limited palette is made (K1): the method's own, or decimation (RGB distance).
+#[derive(Clone, Copy, PartialEq, Eq, Debug, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum PaletteChoice {
+    Native,
+    Decimate,
 }
 
 /// Where the importance map comes from (C1, E7).
@@ -66,6 +75,8 @@ pub struct Settings {
     pub contrast: F,
     /// `--pre-saturation`, `--pre-contrast` (K4).
     pub pre: Adjust,
+    /// `--palette` (K1).
+    pub palette: PaletteChoice,
 }
 
 impl Default for Settings {
@@ -86,6 +97,7 @@ impl Default for Settings {
             oe_saturation: 1.0,
             contrast: 1.0,
             pre: Adjust::default(),
+            palette: PaletteChoice::Native,
         }
     }
 }
@@ -98,6 +110,11 @@ pub struct RunOutput {
 }
 
 impl Settings {
+    /// `--palette decimate` measures distance in RGB (K1).
+    fn decimate(&self) -> Option<Distance> {
+        (self.palette == PaletteChoice::Decimate).then_some(Distance::Rgb)
+    }
+
     /// The K4 adjustments for this method (`--pre-*`, `--contrast`, PixelOE `--saturation`).
     fn color_adjust(&self) -> ColorAdjust {
         ColorAdjust {
@@ -129,6 +146,7 @@ impl Settings {
                 INPUT_FACTOR,
                 o,
                 &self.color_adjust(),
+                self.decimate(),
             );
             let summary = format!(
                 "PixelOE  {}x{} → {}x{}  pixel size {}  {} colours  {:.2} s",
@@ -157,7 +175,14 @@ impl Settings {
         };
         let mut params = Params::new(ow, oh, self.colors);
         params.saturation = self.pia_saturation;
-        let r = pia_image(img, params, INPUT_FACTOR, &importance, &self.color_adjust());
+        let r = pia_image(
+            img,
+            params,
+            INPUT_FACTOR,
+            &importance,
+            &self.color_adjust(),
+            self.decimate(),
+        );
         let s = &r.output.stats;
         let summary = format!(
             "{}  {}x{} → {}x{}  {} colours  {} iterations  {:.2} s",
@@ -268,6 +293,32 @@ mod tests {
             ..Settings::default()
         };
         check(s, "pixeloe_s48_k8_colour.png");
+    }
+
+    #[test]
+    fn pia_decimate_matches_cli() {
+        // -s 48 -k 8 --palette decimate
+        let s = Settings {
+            size: 48,
+            colors: 8,
+            palette: PaletteChoice::Decimate,
+            ..Settings::default()
+        };
+        check(s, "pia_s48_k8_decimate.png");
+    }
+
+    #[test]
+    fn pixeloe_decimate_matches_cli() {
+        // -s 48 -k 8 --method pixeloe --palette decimate
+        let s = Settings {
+            method: Method::Pixeloe,
+            size: 48,
+            colors: 8,
+            oe_quantise: true,
+            palette: PaletteChoice::Decimate,
+            ..Settings::default()
+        };
+        check(s, "pixeloe_s48_k8_decimate.png");
     }
 
     #[test]

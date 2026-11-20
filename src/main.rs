@@ -1,5 +1,6 @@
 use clap::Parser;
 use image::RgbImage;
+use pixplusplus::decimate::Distance;
 use pixplusplus::job::{
     output_size, pia_image, pixeloe_defaults, pixeloe_image, upscale, Importance,
 };
@@ -32,6 +33,11 @@ struct Cli {
     /// Palette size (hard limit). PIA default 16; PixelOE quantises only when given (G8).
     #[arg(short = 'k', long)]
     colors: Option<usize>,
+    /// How the -k palette is made (K1). `native`: the method's own (PIA's solver, PixelOE's
+    /// k-means). `decimate`: merge the closest colours (RGB), keeping the more common one,
+    /// then map each pixel to its nearest colour, no dither. Under PixelOE it needs -k.
+    #[arg(long, value_enum, default_value_t = PaletteArg::Native)]
+    palette: PaletteArg,
     /// Downscale the input so it is at most this many times the output (0 = use input as is).
     /// Under PixelOE, also the pixel size; the input is resized to exactly this times the output
     /// (G7).
@@ -107,6 +113,19 @@ struct Cli {
     /// PixelOE weight normalisation. Default global.
     #[arg(long, value_enum, help_heading = "PixelOE (G9)")]
     oe_normalize: Option<OeNormalize>,
+}
+
+#[derive(clap::ValueEnum, Clone, Copy, Debug, PartialEq, Eq)]
+enum PaletteArg {
+    Native,
+    Decimate,
+}
+
+impl PaletteArg {
+    /// K1: decimation measures distance in RGB, the user's proposal.
+    fn distance(self) -> Option<Distance> {
+        (self == PaletteArg::Decimate).then_some(Distance::Rgb)
+    }
 }
 
 #[derive(clap::ValueEnum, Clone, Copy, Debug, PartialEq, Eq)]
@@ -273,6 +292,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
         _ => {}
     }
+    if cli.palette == PaletteArg::Decimate {
+        if cli.pyxeled_compat {
+            return Err("--palette decimate can't be combined with --pyxeled-compat (A4)".into());
+        }
+        if cli.method == MethodArg::Pixeloe && cli.colors.is_none() {
+            return Err("--palette decimate needs -k under --method pixeloe (G8)".into());
+        }
+    }
     if let Some(t) = cli.threads {
         rayon::ThreadPoolBuilder::new()
             .num_threads(t)
@@ -310,6 +337,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         cli.input_factor,
         &importance,
         &cli.color_adjust(1.0),
+        cli.palette.distance(),
     );
     if let Some(w) = &r.warning {
         eprintln!("warning: {w}");
@@ -359,6 +387,7 @@ fn run_pixeloe(
         cli.input_factor,
         cli.pixeloe_options(0),
         &cli.color_adjust(cli.saturation.unwrap_or(1.0)),
+        cli.palette.distance(),
     );
     let (png, opts, palette) = (&r.image, &r.options, &r.palette);
     png.save(&cli.output)?;

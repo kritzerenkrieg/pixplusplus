@@ -74,6 +74,15 @@ Colour controls, for both methods (1 = unchanged):
 #   --pre-contrast 1.2     so the palette itself picks more vivid or contrasty colours
 ```
 
+Palette (`--palette`, K1):
+
+```sh
+#   --palette native     the method's own palette (default): PIA's solver, PixelOE's k-means
+#   --palette decimate   merge the closest colours, keeping the more common one, then map each
+#                        pixel to its nearest colour with no dither; keeps small vivid colours
+#                        that averaging would grey out (PixelOE: needs -k; PIA: about 3x slower)
+```
+
 `-k` is an upper limit. The output adjustments never add colours, though strong settings can
 merge some (saturation and contrast 0 give a single grey). The one exception is PixelOE's
 `--oe-post-match`, which brings back continuous tones and exceeds `-k`.
