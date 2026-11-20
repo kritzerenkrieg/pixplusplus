@@ -115,11 +115,23 @@ pub(crate) mod fixtures {
     /// Max absolute difference, after checking shapes match.
     pub fn max_diff(got: &Img, want: &Img) -> f32 {
         assert_eq!((got.c, got.h, got.w), (want.c, want.h, want.w), "shape");
+        assert!(
+            got.data.iter().chain(&want.data).all(|v| v.is_finite()),
+            "non-finite value"
+        );
         got.data
             .iter()
             .zip(&want.data)
             .map(|(a, b)| (a - b).abs())
             .fold(0.0, f32::max)
+    }
+
+    #[test]
+    #[should_panic(expected = "non-finite")]
+    fn max_diff_rejects_nan() {
+        let a = Img::from_vec(1, 1, 2, vec![f32::NAN, f32::NAN]);
+        let b = Img::from_vec(1, 1, 2, vec![0.0, 0.0]);
+        max_diff(&a, &b);
     }
 
     pub fn assert_close(name: &str, got: &Img, tol: f32) {

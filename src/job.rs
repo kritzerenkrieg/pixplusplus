@@ -73,8 +73,8 @@ pub fn pia_image(
     let (ow, oh) = (params.out_w, params.out_h);
     if input_factor > 0.0 {
         let (mw, mh) = (
-            (ow as f64 * input_factor).round() as u32,
-            (oh as f64 * input_factor).round() as u32,
+            ((ow as f64 * input_factor).round() as u32).min(iw),
+            ((oh as f64 * input_factor).round() as u32).min(ih),
         );
         if iw > mw || ih > mh {
             img = image::imageops::resize(&img, mw, mh, FilterType::Lanczos3);
@@ -216,6 +216,20 @@ mod tests {
         assert_eq!(cap_output(50, 300, 100, 80), (13, 80));
         assert_eq!(cap_output(100, 80, 100, 80), (100, 80));
         assert_eq!(cap_output(16, 9, 1, 1), (1, 1));
+    }
+
+    #[test]
+    fn pia_never_enlarges_either_axis() {
+        // A wide, short input with a square grid: the height must not be stretched (I1).
+        let img = RgbImage::from_fn(200, 5, |x, y| image::Rgb([x as u8, (y * 40) as u8, 90]));
+        let r = pia_image(img, Params::new(16, 16, 4), 4.0, &Importance::None);
+        assert!(
+            r.input_w <= 200 && r.input_h <= 5,
+            "{}x{}",
+            r.input_w,
+            r.input_h
+        );
+        assert!(r.params.out_h <= 5);
     }
 
     #[test]

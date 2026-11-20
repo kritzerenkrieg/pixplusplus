@@ -179,7 +179,10 @@ impl App {
         else {
             return;
         };
-        if path.extension().is_none() {
+        if !path
+            .extension()
+            .is_some_and(|e| e.eq_ignore_ascii_case("png"))
+        {
             path.set_extension("png");
         }
         let img = if self.save_scale > 1 {
@@ -291,7 +294,7 @@ fn pixeloe_ui(ui: &mut egui::Ui, s: &mut Settings) {
         .show(ui, |ui| {
             ui.label("Outline thickness")
                 .on_hover_text("--oe-thickness (0 = no outline expansion)");
-            ui.add(egui::DragValue::new(&mut o.thickness).range(0..=10));
+            ui.add(egui::DragValue::new(&mut o.thickness).range(0..=6));
             ui.end_row();
 
             ui.label("Downscale mode").on_hover_text("--oe-mode");
@@ -411,6 +414,20 @@ fn to_texture(
     img: &RgbImage,
     opt: TextureOptions,
 ) -> TextureHandle {
+    let max = ctx.input(|i| i.max_texture_side) as u32;
+    let (w, h) = img.dimensions();
+    let shrunk;
+    let img = if w > max || h > max {
+        let s = max as f64 / w.max(h) as f64;
+        let (tw, th) = (
+            ((w as f64 * s) as u32).clamp(1, max),
+            ((h as f64 * s) as u32).clamp(1, max),
+        );
+        shrunk = image::imageops::resize(img, tw, th, image::imageops::FilterType::Triangle);
+        &shrunk
+    } else {
+        img
+    };
     let ci =
         egui::ColorImage::from_rgb([img.width() as usize, img.height() as usize], img.as_raw());
     ctx.load_texture(name, ci, opt)

@@ -35,7 +35,8 @@ def cmd_prep(a):
         img = Image.open(p).convert("RGB")
         for s in a.sizes:
             ow, oh = out_size(*img.size, s)
-            img.resize((ow * PS, oh * PS), Image.LANCZOS).save(work / "in" / f"{p.stem}_{s}.png")
+            # p.name keeps scene.jpg and scene.png apart; the trailing _<size> still parses.
+            img.resize((ow * PS, oh * PS), Image.LANCZOS).save(work / "in" / f"{p.name}_{s}.png")
             print(p.stem, s, (ow, oh))
 
 
@@ -103,6 +104,8 @@ def cmd_compare(a):
               f"{pj['stats']['timings']['total_ms']:.0f} | {tj['peak_rss_kib'] / 1024:.0f} | "
               f"{pj['peak_rss_kib'] / 1024:.0f} |{'' if ok else ' **over G5**'}")
     print(f"\n{sum(rows)}/{len(rows)} within G5 (mean ΔE ≤ 0.5, ≥ 99 % identical); worst mean ΔE {worst:.3f}")
+    if not rows:
+        sys.exit("no images compared: run the prep step first")
     sys.exit(0 if all(rows) else 1)
 
 

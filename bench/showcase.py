@@ -41,19 +41,23 @@ def uri(path, max_side=None, fmt="PNG"):
 
 
 rows = []
-for img in sorted(p for p in src.iterdir() if p.suffix.lower() in (".png", ".jpg", ".jpeg", ".webp")):
+imgs = sorted(p for p in src.iterdir() if p.suffix.lower() in (".png", ".jpg", ".jpeg", ".webp"))
+stems = [p.stem for p in imgs]
+for img in imgs:
     stem = img.stem
+    # Cache key: the stem, or the full name when two sources share a stem (scene.jpg, scene.png).
+    key = stem if stems.count(stem) == 1 else img.name
     meta = sources.get(stem, {})
     link = meta.get("post", "")
     cells = [f'<div class="lab"><b>{html.escape(stem)}</b>'
              + (f' <a href="{html.escape(link)}" target="_blank" rel="noopener">post</a>' if link else "")
              + "</div>"]
-    head = [f'<div class="src" style="grid-row:span {len(a.sizes)}"><img src="{uri(img, 640, "JPEG")}" alt="{stem} source"></div>']
+    head = [f'<div class="src" style="grid-row:span {len(a.sizes)}"><img src="{uri(img, 640, "JPEG")}" alt="{html.escape(stem, quote=True)} source"></div>']
     body = []
     for s in a.sizes:
         body.append(f'<div class="sz">{s}</div>')
         for m in METHODS:
-            p = run / "results" / f"{stem}_{s}_k{a.k}_{m}.png"
+            p = run / "results" / f"{key}_{s}_k{a.k}_{m}.png"
             if not p.exists():
                 p.parent.mkdir(parents=True, exist_ok=True)
                 subprocess.run([a.bin, str(img), "-o", str(p), "-s", str(s), "-k", str(a.k), *FLAGS[m]], check=True)

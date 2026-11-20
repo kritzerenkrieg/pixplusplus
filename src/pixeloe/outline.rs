@@ -96,7 +96,7 @@ pub fn outline_expansion(
     mapping: Mapping,
     norm: Normalize,
 ) -> (Img, Img) {
-    let w = expansion_weight(img, k, k / 2, mapping, norm);
+    let w = expansion_weight(img, k, (k / 2).max(1), mapping, norm);
     let e = erode(img, &kernel(erode_iters), 1);
     let d = dilate(img, &kernel(dilate_iters), 1);
     let plane = img.h * img.w;

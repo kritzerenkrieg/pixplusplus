@@ -132,7 +132,7 @@ pub fn pixelize(img: &Img, o: &Options) -> Img {
     let weighted = o.quant.is_some() && o.quant_mode != Quant::Kmeans;
     let weights = weighted.then(|| {
         let w = oe_weights
-            .unwrap_or_else(|| expansion_weight(img, ps, ps / 2, o.mapping, o.normalize))
+            .unwrap_or_else(|| expansion_weight(img, ps, (ps / 2).max(1), o.mapping, o.normalize))
             .map(|v| (v * 2.0 - 1.0).abs() * v);
         let gamma = (target_size / 512.0) as f32;
         interpolate(&w, out_h, out_w, Interp::Bilinear)
@@ -186,6 +186,28 @@ mod tests {
             pixel_size: 4,
             post_upscale: false,
             ..Options::default()
+        }
+    }
+
+    #[test]
+    fn pixel_size_one_does_not_panic() {
+        let (h, w) = (8, 8);
+        let src = Img::from_vec(
+            3,
+            h,
+            w,
+            (0..3 * h * w).map(|i| (i % 5) as f32 / 4.0).collect(),
+        );
+        for thickness in [0, 2] {
+            let o = Options {
+                pixel_size: 1,
+                thickness,
+                quant: Some(4),
+                quant_mode: Quant::WeightedKmeans,
+                ..base()
+            };
+            let out = pixelize(&src, &o);
+            assert_eq!((out.h, out.w), (h, w));
         }
     }
 

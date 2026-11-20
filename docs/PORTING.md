@@ -62,6 +62,15 @@ via kornia 0.9.2). Each stage is checked against dumps from `bench/pixeloe_ref.p
    `match_color(quantised, down)`, whose wavelet colour fix brings back continuous tones (568
    colours at `-k 16` on the smoke image). The CLI skips it, so `-k N` is a hard limit as in PIA;
    `--oe-post-match` restores upstream. The library default (`Options::default()`) is upstream.
+3. **Edge cases where upstream raises an error (2026-11-20).** Pix++ runs them instead; every
+   other input is unchanged. Pixel size 1: the `local_stat` stride `k // 2` is 0, so Pix++ uses 1.
+   `-k 1` with ordered dither: no second colour to dither towards, so each pixel takes the one
+   colour. Error diffusion on a 1-pixel-wide or 1-pixel-tall image: reflection on a length-1 axis
+   stays at index 0. `--oe-thickness` is limited to 0–6, the sizes upstream has kernels for.
+4. **Kept on purpose: padding grows both axes.** When only one axis needs padding to a multiple
+   of the pixel size, upstream still adds a cell to both (`pixelize.py`, `out_h += 1; out_w += 1`).
+   Pix++ keeps this for parity (Q3). The CLI and GUI resize PixelOE input to an exact multiple
+   (G7), so it only happens with `--input-factor 0`.
 
 ### PixelOE parity (G3, G5), 2026-11-18
 `bench/pixeloe_parity.py` on the 6 showcase images, default options, pixel size 4, same

@@ -64,8 +64,8 @@ struct Cli {
     #[arg(long)]
     threads: Option<usize>,
 
-    /// PixelOE outline thickness (0 = no outline expansion). Default 3.
-    #[arg(long, help_heading = "PixelOE (G9)")]
+    /// PixelOE outline thickness, 0-6 (0 = no outline expansion). Default 3.
+    #[arg(long, value_parser = parse_thickness, help_heading = "PixelOE (G9)")]
     oe_thickness: Option<usize>,
     /// PixelOE downscale mode. Default contrast.
     #[arg(long, value_enum, help_heading = "PixelOE (G9)")]
@@ -146,6 +146,14 @@ enum OeMapping {
 enum OeNormalize {
     Global,
     None,
+}
+
+/// PixelOE has soft circle kernels for thickness 1..=6 only (`morph::kernel`).
+fn parse_thickness(s: &str) -> Result<usize, String> {
+    match s.parse::<usize>() {
+        Ok(t) if t <= 6 => Ok(t),
+        _ => Err("expected a whole number from 0 to 6".into()),
+    }
 }
 
 impl Cli {

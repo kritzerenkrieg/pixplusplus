@@ -294,6 +294,12 @@ fn ordered_dither(img: &Img, pal: &[[f32; 3]]) -> Img {
                 })
                 .collect();
             d.sort_by(|a, b| a.0.total_cmp(&b.0).then(a.1.cmp(&b.1)));
+            if d.len() < 2 {
+                for (c, &v) in pal[d[0].1].iter().enumerate() {
+                    out.data[c * n + i] = v;
+                }
+                continue;
+            }
             let ratio = d[0].0 / (d[0].0 + d[1].0 + 1e-6);
             let pick = if b[y % 8][x % 8] > ratio {
                 d[0].1
@@ -317,6 +323,9 @@ fn error_diffusion(img: &Img, pal: &[[f32; 3]]) -> Img {
     let k = [[0.0f32, 0.0, 7.0], [3.0, 5.0, 1.0]].map(|r| r.map(|v| v / 16.0));
     let mut out = img.clone();
     let refl = |i: isize, len: usize| -> usize {
+        if len == 1 {
+            return 0;
+        }
         let len = len as isize;
         (if i < 0 {
             -i
@@ -391,6 +400,25 @@ pub fn quantize_and_dither(
 mod tests {
     use super::*;
     use crate::pixeloe::fixtures::{assert_close, img};
+
+    fn ramp(h: usize, w: usize) -> Img {
+        let n = h * w;
+        Img::from_vec(3, h, w, (0..3 * n).map(|i| (i % 7) as f32 / 6.0).collect())
+    }
+
+    #[test]
+    fn one_colour_ordered_dither_does_not_panic() {
+        let out = quantize_and_dither(&ramp(4, 4), None, 1, Dither::Ordered, false);
+        assert_eq!((out.h, out.w), (4, 4));
+    }
+
+    #[test]
+    fn error_diffusion_on_single_column_and_row() {
+        for (h, w) in [(3, 1), (1, 3), (1, 1)] {
+            let out = quantize_and_dither(&ramp(h, w), None, 2, Dither::ErrorDiffusion, false);
+            assert!(out.data.iter().all(|v| v.is_finite()));
+        }
+    }
 
     #[test]
     fn f16_rounding() {
