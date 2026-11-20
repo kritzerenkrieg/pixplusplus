@@ -3,7 +3,7 @@
 
 use crate::pixeloe::pipeline::{pixelize, Options};
 use crate::pixeloe::Img;
-use crate::{run, spectral_residual, Input, Output, Params, F};
+use crate::{run, spectral_residual, ColorAdjust, Input, Output, Params, F};
 use image::{imageops::FilterType, GrayImage, RgbImage};
 use std::time::Instant;
 
@@ -63,11 +63,14 @@ pub struct PiaResult {
 
 /// PIA on `img`. `params.out_w`/`out_h` is the requested grid; the input is downscaled to at
 /// most `input_factor` × that grid (B3, 0 = off), then the grid is capped at the input (I1).
+/// `adjust.pre` runs on the resized input, `adjust.post` on the output palette (K4); the
+/// solver's own `params.saturation` (B5) is separate and comes first.
 pub fn pia_image(
     mut img: RgbImage,
     mut params: Params,
     input_factor: f64,
     importance: &Importance,
+    adjust: &ColorAdjust,
 ) -> PiaResult {
     let (iw, ih) = img.dimensions();
     let (ow, oh) = (params.out_w, params.out_h);
@@ -80,6 +83,7 @@ pub fn pia_image(
             img = image::imageops::resize(&img, mw, mh, FilterType::Lanczos3);
         }
     }
+    adjust.pre.apply(&mut img);
     let (w, h) = img.dimensions();
     let (cw, ch) = cap_output(ow, oh, w as usize, h as usize);
     let warning = ((cw, ch) != (ow, oh))
@@ -112,9 +116,19 @@ pub fn pia_image(
         rgb: &rgb,
         importance: imp.as_deref(),
     };
-    let output = run(&input, &params);
-    let image =
+    let mut output = run(&input, &params);
+    let mut image =
         RgbImage::from_raw(output.width as u32, output.height as u32, output.rgb8()).unwrap();
+    let map = adjust.post.colour_map(&image);
+    if !map.is_empty() {
+        for c in output.palette_srgb.iter_mut() {
+            if let Some(&m) = map.get(c) {
+                *c = m;
+            }
+        }
+        image =
+            RgbImage::from_raw(output.width as u32, output.height as u32, output.rgb8()).unwrap();
+    }
     PiaResult {
         image,
         output,
@@ -158,6 +172,7 @@ pub fn pixeloe_image(
     size: usize,
     input_factor: f64,
     mut options: Options,
+    adjust: &ColorAdjust,
 ) -> PixeloeResult {
     let (iw, ih) = img.dimensions();
     let ps = if input_factor > 0.0 {
@@ -171,6 +186,7 @@ pub fn pixeloe_image(
         ((iw.max(ih) as f64 / size as f64).round() as usize).max(1)
     };
     options.pixel_size = ps;
+    adjust.pre.apply(&mut img);
     let (w, h) = (img.width() as usize, img.height() as usize);
     let n = w * h;
     let mut data = vec![0.0f32; 3 * n];
@@ -188,11 +204,13 @@ pub fn pixeloe_image(
         .flat_map(|i| (0..3).map(move |c| (c, i)))
         .map(|(c, i)| (out.data[c * m + i].clamp(0.0, 1.0) * 255.0).round() as u8)
         .collect();
-    let mut palette: Vec<[u8; 3]> = rgb8.as_chunks::<3>().0.to_vec();
+    let mut image = RgbImage::from_raw(out.w as u32, out.h as u32, rgb8).unwrap();
+    adjust.post.apply(&mut image);
+    let mut palette: Vec<[u8; 3]> = image.as_raw().as_chunks::<3>().0.to_vec();
     palette.sort_unstable();
     palette.dedup();
     PixeloeResult {
-        image: RgbImage::from_raw(out.w as u32, out.h as u32, rgb8).unwrap(),
+        image,
         palette,
         options,
         input_w: w,
@@ -222,7 +240,13 @@ mod tests {
     fn pia_never_enlarges_either_axis() {
         // A wide, short input with a square grid: the height must not be stretched (I1).
         let img = RgbImage::from_fn(200, 5, |x, y| image::Rgb([x as u8, (y * 40) as u8, 90]));
-        let r = pia_image(img, Params::new(16, 16, 4), 4.0, &Importance::None);
+        let r = pia_image(
+            img,
+            Params::new(16, 16, 4),
+            4.0,
+            &Importance::None,
+            &ColorAdjust::default(),
+        );
         assert!(
             r.input_w <= 200 && r.input_h <= 5,
             "{}x{}",

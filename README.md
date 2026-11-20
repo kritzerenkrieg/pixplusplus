@@ -59,6 +59,17 @@ PixelOE:
 #   --oe-post-match   upstream's colour fix after -k (output then exceeds k colours)
 ```
 
+Colour controls, for both methods (1 = unchanged):
+
+```sh
+#   --saturation 1.3       output chroma (default: PIA 1.1, the paper's boost; PixelOE 1.0)
+#   --contrast 1.2         output lightness stretched around the image's mean lightness
+#   --pre-saturation 1.5   the same, applied to the input before the palette is chosen,
+#   --pre-contrast 1.2     so the palette itself picks more vivid or contrasty colours
+```
+
+The output adjustments never add colours, so `-k` stays exact.
+
 Notes:
 
 - `--input-factor` (default 4) sets how big the working input is relative to the output.

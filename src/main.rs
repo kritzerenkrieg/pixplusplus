@@ -7,7 +7,7 @@ use pixplusplus::pixeloe::color::Dither;
 use pixplusplus::pixeloe::downscale::Interp;
 use pixplusplus::pixeloe::outline::{Mapping, Normalize};
 use pixplusplus::pixeloe::pipeline::{Mode, Options, Quant, Sharpen};
-use pixplusplus::{peak_rss_kib, Params, Space, Stats, F};
+use pixplusplus::{peak_rss_kib, Adjust, ColorAdjust, Params, Space, Stats, F};
 use std::path::PathBuf;
 use std::time::Instant;
 
@@ -43,8 +43,20 @@ struct Cli {
     /// spectral-residual saliency computed from the input (E7).
     #[arg(long)]
     importance: Option<PathBuf>,
-    #[arg(long, default_value_t = 1.1)]
-    saturation: F,
+    /// Output saturation, chroma × this (K4). Default: PIA 1.1 (the paper's palette boost, B5),
+    /// PixelOE 1.0.
+    #[arg(long, value_parser = parse_factor)]
+    saturation: Option<F>,
+    /// Output contrast: lightness stretched around the image's mean lightness (K4). Never adds
+    /// colours.
+    #[arg(long, default_value_t = 1.0, value_parser = parse_factor)]
+    contrast: F,
+    /// Input saturation, applied before the palette is chosen (K4).
+    #[arg(long, default_value_t = 1.0, value_parser = parse_factor)]
+    pre_saturation: F,
+    /// Input contrast, applied before the palette is chosen (K4).
+    #[arg(long, default_value_t = 1.0, value_parser = parse_factor)]
+    pre_contrast: F,
     #[arg(long, default_value_t = 35.0)]
     t0: F,
     #[arg(long, default_value_t = 45.0)]
@@ -148,6 +160,14 @@ enum OeNormalize {
     None,
 }
 
+/// Saturation and contrast factors (K4): finite and not negative.
+fn parse_factor(s: &str) -> Result<F, String> {
+    match s.parse::<F>() {
+        Ok(v) if v.is_finite() && v >= 0.0 => Ok(v),
+        _ => Err("expected a number >= 0 (1 = unchanged)".into()),
+    }
+}
+
 /// PixelOE has soft circle kernels for thickness 1..=6 only (`morph::kernel`).
 fn parse_thickness(s: &str) -> Result<usize, String> {
     match s.parse::<usize>() {
@@ -157,6 +177,20 @@ fn parse_thickness(s: &str) -> Result<usize, String> {
 }
 
 impl Cli {
+    /// K4 adjustments. `post_saturation` is the method's own default when not given.
+    fn color_adjust(&self, post_saturation: F) -> ColorAdjust {
+        ColorAdjust {
+            pre: Adjust {
+                saturation: self.pre_saturation,
+                contrast: self.pre_contrast,
+            },
+            post: Adjust {
+                saturation: post_saturation,
+                contrast: self.contrast,
+            },
+        }
+    }
+
     fn uses_oe_flags(&self) -> bool {
         self.oe_thickness.is_some()
             || self.oe_mode.is_some()
@@ -263,13 +297,20 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         SpaceArg::Oklab => Space::Oklab,
         SpaceArg::Cielab => Space::Cielab,
     };
-    p.saturation = cli.saturation;
+    // PIA's output saturation is the solver's palette boost (B5); the adjust step does contrast.
+    p.saturation = cli.saturation.unwrap_or(1.1);
     p.t0 = cli.t0;
     p.m = cli.m;
     p.max_iters = cli.max_iters;
     p.pyxeled_compat = cli.pyxeled_compat;
 
-    let r = pia_image(img, p, cli.input_factor, &importance);
+    let r = pia_image(
+        img,
+        p,
+        cli.input_factor,
+        &importance,
+        &cli.color_adjust(1.0),
+    );
     if let Some(w) = &r.warning {
         eprintln!("warning: {w}");
     }
@@ -317,6 +358,7 @@ fn run_pixeloe(
         cli.size,
         cli.input_factor,
         cli.pixeloe_options(0),
+        &cli.color_adjust(cli.saturation.unwrap_or(1.0)),
     );
     let (png, opts, palette) = (&r.image, &r.options, &r.palette);
     png.save(&cli.output)?;

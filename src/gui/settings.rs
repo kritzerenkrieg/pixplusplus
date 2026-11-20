@@ -4,6 +4,7 @@
 use image::RgbImage;
 use pixplusplus::job::{output_size, pia_image, pixeloe_defaults, pixeloe_image, Importance};
 use pixplusplus::pixeloe::pipeline::Options;
+use pixplusplus::ColorAdjust;
 use pixplusplus::Params;
 use std::path::PathBuf;
 use std::time::Instant;
@@ -84,7 +85,15 @@ impl Settings {
         if self.method == Method::Pixeloe {
             let mut o = self.oe.clone();
             o.quant = self.oe_quantise.then_some(self.colors);
-            let r = pixeloe_image(img, ow, oh, self.size, INPUT_FACTOR, o);
+            let r = pixeloe_image(
+                img,
+                ow,
+                oh,
+                self.size,
+                INPUT_FACTOR,
+                o,
+                &ColorAdjust::default(),
+            );
             let summary = format!(
                 "PixelOE  {}x{} → {}x{}  pixel size {}  {} colours  {:.2} s",
                 r.input_w,
@@ -115,6 +124,7 @@ impl Settings {
             Params::new(ow, oh, self.colors),
             INPUT_FACTOR,
             &importance,
+            &ColorAdjust::default(),
         );
         let s = &r.output.stats;
         let summary = format!(

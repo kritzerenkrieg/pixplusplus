@@ -1,10 +1,12 @@
 //! Pix++ — Pixelated Image Abstraction in Rust.
+pub mod adjust;
 pub mod color;
 pub mod job;
 pub mod pia;
 pub mod pixeloe;
 pub mod saliency;
 
+pub use adjust::{Adjust, ColorAdjust};
 pub use color::{Space, F};
 pub use pia::{run, Input, Output, Params, Stats};
 pub use saliency::spectral_residual;
