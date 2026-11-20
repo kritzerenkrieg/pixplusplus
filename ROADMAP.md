@@ -89,9 +89,17 @@ Phases A to C were built before DLAD was adopted, so their B and C rows are stil
 **Goal:** a native desktop app on Linux, Windows and macOS (J5) that runs the three methods (E8) with the same output as the CLI.
 **Exit:** `cargo build --release --features gui` gives a `pixplusplus-gui` that opens, runs and saves an image with each method; the default build is unchanged.
 
-- [ ] Shared glue (J2): move the image-in, image-out code from `main.rs` into a library module used by the CLI. Done when: `cargo test`, `cargo clippy` and `cargo fmt --check` pass, and the smoke, `--importance auto`, `--pyxeled-compat` and `--method pixeloe -k 16` outputs are byte-identical to before.
+- [x] Shared glue (J2): move the image-in, image-out code from `main.rs` into a library module used by the CLI. Done when: `cargo test`, `cargo clippy` and `cargo fmt --check` pass, and the smoke, `--importance auto`, `--pyxeled-compat` and `--method pixeloe -k 16` outputs are byte-identical to before. (2026-11-20: smoke, `--importance auto`, `--pyxeled-compat`, `--method pixeloe` with and without `-k 16`, error diffusion and two size edge cases byte-identical to `0e3ab51`; 28 tests pass, clippy and fmt clean.)
 - [ ] GUI binary (J1–J4, J6): `pixplusplus-gui` behind the `gui` feature: open, method and settings, run on a worker thread with a spinner, preview, save. Done when: `cargo build --release --features gui` and `cargo clippy --features gui` are clean, the default `cargo build` pulls no GUI crates, and an image saved from the GUI matches the CLI output for the same settings.
 - [ ] Multiplatform builds (J5, Q1). Done when: Windows and macOS builds pass (CI or a remote machine), once Q1 is Decided.
+
+## Phase K: Colour fidelity (K1, K2, K4)
+
+Goal: outputs keep the source's vivid colours, and saturation and contrast are adjustable.
+
+- [ ] Colour adjust (K4): a shared Oklab step (chroma × s, lightness stretched by c around the mean lightness) used as a pre-adjust on the input and a post-adjust per output colour, for PIA and PixelOE; flags `--pre-saturation`, `--pre-contrast`, `--saturation`, `--contrast`. Done when: unit tests show neutral values are a no-op, post-adjust never raises the colour count, and the default smoke, `--pyxeled-compat` and `--method pixeloe -k 16` outputs are byte-identical to before; `cargo test`, `cargo clippy` and `cargo fmt --check` pass.
+- [ ] Palette by decimation (K1): `--palette decimate` for both methods (PIA solves larger, then decimates to `-k`). Done when: the output has at most `-k` colours, every palette colour is one of the pre-decimation colours, default outputs are byte-identical to before, and an RGB-vs-Oklab distance comparison on the showcase images is recorded here for the user.
+- [ ] GUI controls (K1, K2, K4): the four colour sliders, a palette choice, and no dither by default under PixelOE. Done when: `cargo clippy --features gui` is clean and an image saved from the GUI matches the CLI output for the same settings.
 
 ## Cycle: feature and maintenance
 

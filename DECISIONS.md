@@ -4,7 +4,7 @@ Source of truth: overrules `ARCHITECTURE.md` and `ROADMAP.md`. A code is the roa
 
 **Status:** **Decided**: binding, with the reason in a few words. **Inspect**: research or a spike first. **TBD**: ask, don't guess. **Question**: not yet read by the human, so treat it as TBD.
 
-**Phases:** A Foundations (done), B Core solver and parity (done), C Controls and harness (done), D Benchmark run and report (done), E Post-benchmark features, G PixelOE in Rust, H PixelOE speed, I Any output size, J Native GUI. Letter F is unused.
+**Phases:** A Foundations (done), B Core solver and parity (done), C Controls and harness (done), D Benchmark run and report (done), E Post-benchmark features, G PixelOE in Rust, H PixelOE speed, I Any output size, J Native GUI, K Colour fidelity. Letter F is unused.
 
 **Scope:** Pix++ only. The rows `C3`, `C4` and `D1`–`D4` were research work (benchmark design, verdict, raters) and are retired; their codes stay so old citations resolve.
 
@@ -12,8 +12,8 @@ Source of truth: overrules `ARCHITECTURE.md` and `ROADMAP.md`. A code is the roa
 
 - **Methods (E8):** base PIA (default), PIA + importance map (`--importance FILE|auto`), PixelOE (`--method pixeloe`, to be ported).
 - **Next work:** cut the edge weight (E1), format once (E4), `--importance auto` (E7), then the PixelOE port (Phase G, G1–G4).
-- **Next work:** native GUI (Phase J, J1–J6).
-- **Open:** Q1 (CI for the Windows and macOS builds).
+- **Next work:** native GUI (Phase J, J1–J6), then colour fidelity (Phase K: K1, K2, K4).
+- **Open:** Q1 (CI for the Windows and macOS builds); K3 (stronger default saturation, likely moot after K1 and K4).
 - **Not now:** palette per material (E3). PIA solver stays as is (E5).
 
 | Code | Topic | Status | Decision / Question |
@@ -65,3 +65,9 @@ Source of truth: overrules `ARCHITECTURE.md` and `ROADMAP.md`. A code is the roa
 | J5 | GUI platforms | Decided | Fully multiplatform: Linux, Windows and macOS are all first-class targets. User choice (2026-11-18). |
 | J6 | GUI dependencies | Decided | `eframe` (with `egui`) and `rfd` for native file dialogs, both optional behind the `gui` feature (J2). Windows and macOS builds run in CI or on a remote machine, not this laptop (A5). Accepted by user (2026-11-18). |
 | Q1 | CI for multiplatform builds | Question | J5 needs Windows and macOS builds that this laptop can't make. Agent proposal: a GitHub Actions workflow (ubuntu, windows, macos runners) running `cargo build --release --features gui`, `cargo test` and `cargo clippy`. It runs on GitHub, so it needs approval before it is pushed. |
+| K1 | Palette by colour decimation | Decided | Opt-in `--palette decimate` for both methods (default palette unchanged). Repeatedly merge the closest pair of colours, keeping the heavier colour unchanged, then map each pixel to its nearest palette colour with no dither. PIA solves at a larger palette and decimates down to `-k`, so the solver is unchanged (E5); the compat path stays as is (A4, B1). Compare RGB (user proposal) against Oklab distance on several images before any default change. Evidence (smoke image, 128, k8): PIA top-5 % chroma 0.073 → 0.124, mean ΔE 4.6 → 5.7; PixelOE loses the dither pattern. User choice (2026-11-20). |
+| K2 | PixelOE dither default | Decided | The GUI defaults to no dither; the CLI keeps upstream's ordered dither (G9). User choice (2026-11-20). |
+| K3 | PIA saturation | Question | If K1 is not taken, a cheaper fix is a stronger default saturation boost than B5's 1.1×. It lifts every colour, including ones that were already right, and does not bring back hues that were merged away. Listed for completeness; the agent does not recommend it over K1. |
+| K4 | Saturation and contrast controls | Decided | Two separate adjustments, both in Oklab (chroma × saturation; lightness stretched by contrast around the image's mean lightness, so overall brightness stays put): a pre-adjust on the input before the palette is chosen, and a post-adjust on the final output, applied per colour so it never adds colours (`-k` stays a hard limit, G10). Both methods, all four in the GUI. Defaults are neutral (1.0) except post-saturation under PIA, which keeps 1.1 (B5). Flags (agent naming): `--pre-saturation`, `--pre-contrast`, `--saturation`, `--contrast`; `--saturation` now also works under PixelOE instead of being ignored. Compat path unchanged (A4, B1). User choice (2026-11-20). |
+| Q2 | `--importance auto` on very tall or wide images | Question | CodeRabbit (PR #1): the saliency step resizes to 64 wide, so a tall, narrow input gives a tall working image (8×1024 → 64×8192), and the direct DFT is quadratic in that height (billions of `sin_cos` calls; minutes). Normal aspect ratios are unaffected (smoke image: 64×40). The DFT is direct so the map stays byte-identical to the harness (E7); an FFT would change float rounding. Options: (a) cap the working size, e.g. the long side at 64 (changes maps for tall images only; normal images unchanged); (b) an FFT, checked against the harness on the showcase images; (c) leave it. Agent leans to (a). |
+| Q3 | PixelOE padding grows both axes | Question | CodeRabbit (PR #1): when only one axis needs padding, upstream PixelOE adds an output cell to both (`pixelize.py`), so a 50×40 input at pixel size 4 gives 13×11 instead of 13×10. Pix++ copies this for parity (G3, G5). Only reachable with `--input-factor 0`, since G7 resizes PixelOE input to an exact multiple. Options: keep upstream's behaviour (current), or fix it as a listed divergence. |
