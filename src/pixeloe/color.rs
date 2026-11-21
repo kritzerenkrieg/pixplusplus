@@ -144,7 +144,13 @@ pub fn match_color(source: &Img, target: &Img) -> Img {
     let tl = rgb_to_lab(target);
     let (ms, ss) = mean_std(&sl.data);
     let (mt, st) = mean_std(&tl.data);
-    let res = sl.map(|v| (v - ms) / ss * st + mt);
+    // A flat source (an all-black image) has no spread to scale; upstream divides by zero and
+    // returns NaN. Shift it to the target's mean instead (docs/PORTING.md).
+    let res = if ss > 0.0 {
+        sl.map(|v| (v - ms) / ss * st + mt)
+    } else {
+        sl.map(|v| v - ms + mt)
+    };
     wavelet_colorfix(&lab_to_rgb(&res), target, 5)
 }
 
@@ -400,6 +406,19 @@ pub fn quantize_and_dither(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn match_color_on_a_black_source_is_finite() {
+        let black = Img::new(3, 16, 16);
+        let target = Img::from_vec(
+            3,
+            16,
+            16,
+            (0..768).map(|i| (i % 97) as f32 / 96.0).collect(),
+        );
+        let out = match_color(&black, &target);
+        assert!(out.data.iter().all(|v| v.is_finite()));
+    }
     use crate::pixeloe::fixtures::{assert_close, img};
 
     fn ramp(h: usize, w: usize) -> Img {

@@ -70,6 +70,8 @@ via kornia 0.9.2). Each stage is checked against dumps from `bench/pixeloe_ref.p
    Weighted or repeat k-means after one-axis padding (item 4) with the contrast or k-centroid
    downscale: upstream sizes the weights to the padded output grid, which has more cells than
    the downscaled image, and torch fails; Pix++ sizes them to the downscaled image.
+   Colour matching a flat source (an all-black image): upstream divides by its zero standard
+   deviation and returns NaN; Pix++ shifts it to the target's mean.
 4. **Kept on purpose: padding grows both axes.** When only one axis needs padding to a multiple
    of the pixel size, upstream still adds a cell to both (`pixelize.py`, `out_h += 1; out_w += 1`).
    Pix++ keeps this for parity (Q3). The CLI and GUI resize PixelOE input to an exact multiple

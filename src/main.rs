@@ -93,8 +93,8 @@ struct Cli {
     /// PixelOE sharpening before downscale. Default none.
     #[arg(long, value_enum, help_heading = "PixelOE (G9)")]
     oe_sharpen: Option<OeSharpen>,
-    /// PixelOE sharpening amount. Default 0.5.
-    #[arg(long, help_heading = "PixelOE (G9)")]
+    /// PixelOE sharpening amount (>= 0). Default 0.5.
+    #[arg(long, value_parser = parse_amount, help_heading = "PixelOE (G9)")]
     oe_sharpen_factor: Option<f32>,
     /// Skip PixelOE's colour matching to the input.
     #[arg(long, help_heading = "PixelOE (G9)")]
@@ -191,6 +191,14 @@ fn parse_factor(s: &str) -> Result<F, String> {
     match s.parse::<F>() {
         Ok(v) if v.is_finite() && v >= 0.0 => Ok(v),
         _ => Err("expected a number >= 0 (1 = unchanged)".into()),
+    }
+}
+
+/// A finite amount >= 0 (NaN would turn the whole image black).
+fn parse_amount(s: &str) -> Result<f32, String> {
+    match s.parse::<f32>() {
+        Ok(v) if v.is_finite() && v >= 0.0 => Ok(v),
+        _ => Err("expected a number >= 0".into()),
     }
 }
 
@@ -474,6 +482,24 @@ fn run_pixeloe(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn sharpen_factor_must_be_finite() {
+        let parse = |v: &str| {
+            Cli::try_parse_from([
+                "pixplusplus",
+                "in.png",
+                "-o",
+                "o.png",
+                "--oe-sharpen-factor",
+                v,
+            ])
+        };
+        for bad in ["NaN", "inf", "-0.5"] {
+            assert!(parse(bad).is_err(), "{bad}");
+        }
+        assert_eq!(parse("0").unwrap().oe_sharpen_factor, Some(0.0));
+    }
 
     #[test]
     fn zero_colours_is_rejected() {
