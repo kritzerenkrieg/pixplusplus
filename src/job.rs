@@ -82,8 +82,8 @@ pub fn pia_image(
     let (ow, oh) = (params.out_w, params.out_h);
     if input_factor > 0.0 {
         let (mw, mh) = (
-            ((ow as f64 * input_factor).round() as u32).min(iw),
-            ((oh as f64 * input_factor).round() as u32).min(ih),
+            ((ow as f64 * input_factor).round() as u32).clamp(1, iw),
+            ((oh as f64 * input_factor).round() as u32).clamp(1, ih),
         );
         if iw > mw || ih > mh {
             img = image::imageops::resize(&img, mw, mh, FilterType::Lanczos3);
@@ -284,6 +284,21 @@ mod tests {
         assert_eq!(cap_output(50, 300, 100, 80), (13, 80));
         assert_eq!(cap_output(100, 80, 100, 80), (100, 80));
         assert_eq!(cap_output(16, 9, 1, 1), (1, 1));
+    }
+
+    #[test]
+    fn fractional_factor_on_a_one_pixel_axis() {
+        // 128x1 grid at factor 0.25 rounded the height to 0 and panicked in cap_output.
+        let img = RgbImage::from_fn(300, 40, |x, y| image::Rgb([x as u8, (y * 6) as u8, 90]));
+        let r = pia_image(
+            img,
+            Params::new(128, 1, 4),
+            0.25,
+            &Importance::None,
+            &ColorAdjust::default(),
+            None,
+        );
+        assert!(r.image.width() >= 1 && r.image.height() == 1);
     }
 
     #[test]

@@ -86,7 +86,13 @@ struct Profiles {
 }
 
 enum Dialog {
-    SaveAs { name: String, error: Option<String> },
+    /// `focus`: put the cursor in the name field on the frame the dialog opens, then leave
+    /// focus to the user (a request every frame interrupts IME input).
+    SaveAs {
+        name: String,
+        error: Option<String>,
+        focus: bool,
+    },
     ConfirmOverwrite(String),
     ConfirmDelete(String),
 }
@@ -375,6 +381,7 @@ impl App {
                         self.profiles.dialog = Some(Dialog::SaveAs {
                             name: String::new(),
                             error: None,
+                            focus: true,
                         })
                     }
                 }
@@ -390,7 +397,11 @@ impl App {
                     .as_ref()
                     .map(|(n, _)| n.clone())
                     .unwrap_or_default();
-                self.profiles.dialog = Some(Dialog::SaveAs { name, error: None });
+                self.profiles.dialog = Some(Dialog::SaveAs {
+                    name,
+                    error: None,
+                    focus: true,
+                });
             }
             let picked = self.profiles.selected.clone();
             if ui
@@ -424,11 +435,14 @@ impl App {
             Dialog::SaveAs {
                 mut name,
                 mut error,
+                focus,
             } => {
                 window("Save profile as").show(ctx, |ui| {
                     ui.label("Profile name:");
                     let edit = ui.text_edit_singleline(&mut name);
-                    edit.request_focus();
+                    if focus {
+                        edit.request_focus();
+                    }
                     let enter = edit.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter));
                     if let Some(e) = &error {
                         ui.colored_label(Color32::from_rgb(220, 80, 80), e);
@@ -459,6 +473,7 @@ impl App {
                     next = Some(Dialog::SaveAs {
                         name: name.clone(),
                         error: error.clone(),
+                        focus: false,
                     });
                 });
             }

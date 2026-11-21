@@ -1,11 +1,10 @@
-# Q1: check every push to the main branches and every pull request on Linux, Windows and
+# Q1: check every push and every pull request on Linux, Windows and
 # macOS (J5). Same checks as AGENTS.md: fmt, clippy (with and without the GUI), tests,
 # release builds. Nothing is published.
 name: CI
 
 on:
   push:
-    branches: [master, main]
   pull_request:
 
 permissions:

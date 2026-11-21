@@ -75,20 +75,22 @@ pub fn linspace(start: f32, end: f32, steps: usize) -> Vec<f32> {
 /// their cluster means. Returns the largest centroid move.
 pub fn kmeans_step(data: &[[f32; 3]], cents: &mut [[f32; 3]], weights: Option<&[f32]>) -> f32 {
     let k = cents.len();
-    let mut sums = vec![[0.0f32; 3]; k];
+    // f64 sums: torch sums pairwise, so a long naive f32 sum drifts away from upstream
+    // (a constant 204/255 image over 512x512 gave a 203 centroid).
+    let mut sums = vec![[0.0f64; 3]; k];
     let mut counts = vec![0usize; k];
     for (n, p) in data.iter().enumerate() {
         let lab = nearest(p, cents, weights.map(|w| w[n]));
         counts[lab] += 1;
         for c in 0..3 {
-            sums[lab][c] += p[c];
+            sums[lab][c] += p[c] as f64;
         }
     }
     let mut diff = 0.0f32;
     for j in 0..k {
         if counts[j] > 0 {
             for c in 0..3 {
-                let m = sums[j][c] / counts[j] as f32;
+                let m = (sums[j][c] / counts[j] as f64) as f32;
                 diff = diff.max((m - cents[j][c]).abs());
                 cents[j][c] = m;
             }

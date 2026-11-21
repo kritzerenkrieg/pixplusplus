@@ -16,7 +16,7 @@ from PIL import Image
 
 METHODS = ["pixeloe", "pia", "pia_imp"]  # E8: the three methods
 INFO = {"pixeloe": "PixelOE (k-means)", "pia": "PIA", "pia_imp": "PIA + saliency map"}
-FLAGS = {"pixeloe": ["--method", "pixeloe"], "pia": [], "pia_imp": ["--importance", "auto"]}
+FLAGS = {"pixeloe": ["--method", "pixeloe"], "pia": ["--importance", "none"], "pia_imp": ["--importance", "auto"]}
 OUT = Path(__file__).resolve().parent / "out" / "showcase"
 
 ap = argparse.ArgumentParser()

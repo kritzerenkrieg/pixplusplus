@@ -135,14 +135,10 @@ pub fn pixelize(img: &Img, o: &Options) -> Img {
     }
 
     let weighted = o.quant.is_some() && o.quant_mode != Quant::Kmeans;
-    let weights = weighted.then(|| {
-        let w = oe_weights
+    let raw_weights = weighted.then(|| {
+        oe_weights
             .unwrap_or_else(|| expansion_weight(img, ps, (ps / 2).max(1), o.mapping, o.normalize))
-            .map(|v| (v * 2.0 - 1.0).abs() * v);
-        let gamma = (target_size / 512.0) as f32;
-        interpolate(&w, out_h, out_w, Interp::Bilinear)
-            .map(|v| v.powf(gamma))
-            .data
+            .map(|v| (v * 2.0 - 1.0).abs() * v)
     });
 
     if o.color_match {
@@ -155,6 +151,16 @@ pub fn pixelize(img: &Img, o: &Options) -> Img {
         Mode::Lanczos => lanczos(&expanded, out_h, out_w),
         Mode::Interp(m) => interpolate(&expanded, out_h, out_w, m),
     };
+
+    // One weight per downscaled pixel. Upstream sizes them to (out_h, out_w), which differs
+    // from the contrast and k-centroid output when only one axis was padded (Q3), and then
+    // fails in torch; here they follow the image (docs/PORTING.md).
+    let weights = raw_weights.map(|w| {
+        let gamma = (target_size / 512.0) as f32;
+        interpolate(&w, down.h, down.w, Interp::Bilinear)
+            .map(|v| v.powf(gamma))
+            .data
+    });
 
     let fin = match o.quant {
         Some(k) => {
