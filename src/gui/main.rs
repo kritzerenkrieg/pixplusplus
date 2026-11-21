@@ -290,8 +290,7 @@ impl App {
             } else {
                 img
             };
-            let r = img
-                .save(&path)
+            let r = save_png(&img, &path)
                 .map(|()| path.clone())
                 .map_err(|e| format!("Could not save {}: {e}", path.display()));
             let _ = tx.send(r);
@@ -1070,6 +1069,35 @@ impl App {
     }
 }
 
+/// Writes `img` as a PNG to a staging file next to `path`, then moves it over `path`. A failed
+/// write (full disk, say) leaves an existing file at `path` untouched; only the staging file
+/// is removed.
+fn save_png(img: &RgbImage, path: &Path) -> Result<(), String> {
+    let dir = match path.parent() {
+        Some(d) if !d.as_os_str().is_empty() => d,
+        _ => Path::new("."),
+    };
+    let tmp = profiles::staging_file(dir, "png")?;
+    let write = || -> Result<(), String> {
+        use std::io::Write;
+        let f = std::fs::OpenOptions::new()
+            .write(true)
+            .open(&tmp)
+            .map_err(|e| e.to_string())?;
+        let mut w = std::io::BufWriter::new(f);
+        img.write_to(&mut w, image::ImageFormat::Png)
+            .map_err(|e| e.to_string())?;
+        w.flush().map_err(|e| e.to_string())?;
+        let f = w.into_inner().map_err(|e| e.to_string())?;
+        f.sync_all().map_err(|e| e.to_string())?;
+        drop(f);
+        std::fs::rename(&tmp, path).map_err(|e| e.to_string())
+    };
+    write().inspect_err(|_| {
+        let _ = std::fs::remove_file(&tmp);
+    })
+}
+
 impl eframe::App for App {
     fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
         let ctx = ui.ctx().clone();
@@ -1102,5 +1130,52 @@ impl eframe::App for App {
             .show(ui, |ui| self.side_panel(ui, &ctx, running));
         self.profile_dialogs(&ctx);
         egui::CentralPanel::default().show(ui, |ui| self.image_view(ui, &ctx));
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn temp_dir(tag: &str) -> PathBuf {
+        let d = std::env::temp_dir().join(format!("pixplusplus-png-{tag}-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&d);
+        std::fs::create_dir_all(&d).unwrap();
+        d
+    }
+
+    fn entries(d: &Path) -> Vec<String> {
+        let mut v: Vec<String> = std::fs::read_dir(d)
+            .unwrap()
+            .map(|e| e.unwrap().file_name().to_string_lossy().into_owned())
+            .collect();
+        v.sort();
+        v
+    }
+
+    #[test]
+    fn save_png_replaces_and_cleans_up() {
+        let d = temp_dir("ok");
+        let p = d.join("out.png");
+        std::fs::write(&p, b"old").unwrap();
+        let img = RgbImage::from_fn(4, 3, |x, y| image::Rgb([x as u8 * 60, y as u8 * 80, 7]));
+        save_png(&img, &p).unwrap();
+        assert_eq!(image::open(&p).unwrap().to_rgb8(), img);
+        assert_eq!(entries(&d), ["out.png"]);
+        let _ = std::fs::remove_dir_all(&d);
+    }
+
+    #[test]
+    fn failed_save_keeps_the_original() {
+        // The destination is a non-empty folder, so the final move fails after encoding.
+        let d = temp_dir("fail");
+        let p = d.join("out.png");
+        std::fs::create_dir(&p).unwrap();
+        std::fs::write(p.join("keep"), b"original").unwrap();
+        let img = RgbImage::new(2, 2);
+        assert!(save_png(&img, &p).is_err());
+        assert_eq!(std::fs::read(p.join("keep")).unwrap(), b"original");
+        assert_eq!(entries(&d), ["out.png"]);
+        let _ = std::fs::remove_dir_all(&d);
     }
 }

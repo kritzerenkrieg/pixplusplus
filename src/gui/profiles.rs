@@ -114,7 +114,7 @@ pub fn save(dir: &Path, name: &str, settings: &Settings) -> Result<(), String> {
         settings,
     })
     .map_err(|e| e.to_string())?;
-    let tmp = staging_file(dir)?;
+    let tmp = staging_file(dir, "profile")?;
     let write = || -> std::io::Result<()> {
         use std::io::Write;
         let mut f = std::fs::OpenOptions::new().write(true).open(&tmp)?;
@@ -129,8 +129,9 @@ pub fn save(dir: &Path, name: &str, settings: &Settings) -> Result<(), String> {
 }
 
 /// A new, empty staging file in `dir`, created exclusively, so two saves (say from two open
-/// windows) never share one. The leading dot and `.tmp` keep it out of [`list`].
-fn staging_file(dir: &Path) -> Result<PathBuf, String> {
+/// windows) never share one. The leading dot and `.tmp` keep it out of [`list`]. `tag` names
+/// what is being written (`profile`, `png`).
+pub fn staging_file(dir: &Path, tag: &str) -> Result<PathBuf, String> {
     use std::sync::atomic::{AtomicU64, Ordering};
     static NEXT: AtomicU64 = AtomicU64::new(0);
     let nanos = std::time::SystemTime::now()
@@ -138,7 +139,7 @@ fn staging_file(dir: &Path) -> Result<PathBuf, String> {
         .map_or(0, |d| d.as_nanos());
     for _ in 0..16 {
         let n = NEXT.fetch_add(1, Ordering::Relaxed);
-        let tmp = dir.join(format!(".profile-{}-{nanos}-{n}.tmp", std::process::id()));
+        let tmp = dir.join(format!(".{tag}-{}-{nanos}-{n}.tmp", std::process::id()));
         match std::fs::OpenOptions::new()
             .write(true)
             .create_new(true)
