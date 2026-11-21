@@ -25,7 +25,7 @@ cargo build --release --features gui   # also the GUI: target/release/pixplusplu
 ```
 
 The default build has no GUI dependencies. The GUI uses egui/eframe with native file dialogs
-and targets Linux, Windows and macOS.
+and targets Linux and Windows (macOS is not supported for now).
 
 ## GUI
 
@@ -44,8 +44,7 @@ Open an image, pick a method, set the size, colours and palette, adjust colour, 
 
 Settings can be kept as named profiles (Save, Save as…, Load, Delete at the top of the panel).
 Each profile is a JSON file in `~/.config/pixplusplus/profiles` on Linux (`$XDG_CONFIG_HOME`
-if set), `~/Library/Application Support/pixplusplus/profiles` on macOS and
-`%APPDATA%\pixplusplus\profiles` on Windows.
+if set) and `%APPDATA%\pixplusplus\profiles` on Windows.
 
 ## CLI
 

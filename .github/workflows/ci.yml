@@ -1,5 +1,5 @@
-# Q1: check every push and every pull request on Linux, Windows and
-# macOS (J5). Same checks as AGENTS.md: fmt, clippy (with and without the GUI), tests,
+# Q1: check every push and every pull request on Linux and Windows
+# (J5; macOS dropped for now, 2026-11-21). Same checks as AGENTS.md: fmt, clippy (with and without the GUI), tests,
 # release builds. Nothing is published.
 name: CI
 
@@ -32,7 +32,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
+        os: [ubuntu-latest, windows-latest]
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4

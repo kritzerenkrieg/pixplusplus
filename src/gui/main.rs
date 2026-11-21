@@ -1,5 +1,5 @@
-//! `pixplusplus-gui`: desktop front end for Pix++ (J1–J6). egui/eframe on Linux, Windows and
-//! macOS (J5). Jobs run on a worker thread with a spinner (J4); the output is the same as the
+//! `pixplusplus-gui`: desktop front end for Pix++ (J1–J6). egui/eframe on Linux and Windows
+//! (J5). Jobs run on a worker thread with a spinner (J4); the output is the same as the
 //! CLI's for the same settings (J2).
 #![cfg_attr(windows, windows_subsystem = "windows")]
 

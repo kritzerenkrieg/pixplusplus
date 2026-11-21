@@ -86,13 +86,13 @@ Phases A to C were built before DLAD was adopted, so their B and C rows are stil
 
 ## Phase J: Native GUI (J1–J6)
 
-**Goal:** a native desktop app on Linux, Windows and macOS (J5) that runs the three methods (E8) with the same output as the CLI.
+**Goal:** a native desktop app on Linux and Windows (J5; macOS dropped for now) that runs the three methods (E8) with the same output as the CLI.
 **Exit:** `cargo build --release --features gui` gives a `pixplusplus-gui` that opens, runs and saves an image with each method; the default build is unchanged.
 
 - [x] Shared glue (J2): move the image-in, image-out code from `main.rs` into a library module used by the CLI. Done when: `cargo test`, `cargo clippy` and `cargo fmt --check` pass, and the smoke, `--importance auto`, `--pyxeled-compat` and `--method pixeloe -k 16` outputs are byte-identical to before. (2026-11-20: smoke, `--importance auto`, `--pyxeled-compat`, `--method pixeloe` with and without `-k 16`, error diffusion and two size edge cases byte-identical to `0e3ab51`; 28 tests pass, clippy and fmt clean.)
 - [x] GUI binary (J1–J4, J6): `pixplusplus-gui` behind the `gui` feature: open, method and settings, run on a worker thread with a spinner, preview, save. Done when: `cargo build --release --features gui` and `cargo clippy --features gui` are clean, the default `cargo build` pulls no GUI crates, and an image saved from the GUI matches the CLI output for the same settings. (2026-11-20: release build and clippy with `gui` clean; `cargo tree` shows no GUI crates in the default build; 6 GUI tests check the GUI image against CLI fixtures for PIA, PIA + auto importance, PixelOE with and without `-k`, and both methods with colour controls. Saving at scale 1 writes that same image.)
 - [x] GUI v2 (J7): two methods by full name, importance as a PIA toggle (on), utilitarian layout, shortcuts, stale-result notice, profile format 2 with migration. Done when: clippy with `gui` clean, GUI tests match CLI fixtures, version 1 profiles load with their old meaning. (2026-11-21: 39 library + 16 GUI tests pass, incl. migration of 5 v1 cases; layout checked on a window capture.)
-- [x] Multiplatform builds (J5, Q1). Done when: Windows and macOS builds pass (CI or a remote machine), once Q1 is Decided. (2026-11-21: Q1 Decided; `.github/workflows/ci.yml` checks fmt, clippy with and without `gui`, tests and release builds on Ubuntu, Windows and macOS. Passed on all three: run 44863568410, commit a0a4b37.)
+- [x] Multiplatform builds (J5, Q1). Done when: Windows builds pass (CI or a remote machine), once Q1 is Decided. (2026-11-21: Q1 Decided; `.github/workflows/ci.yml` checks fmt, clippy with and without `gui`, tests and release builds on Ubuntu, Windows and macOS. Passed on all three: run 44863568410, commit a0a4b37. 2026-11-21: macOS dropped from CI with J5.)
 
 ## Phase K: Colour fidelity (K1, K2, K4)
 
