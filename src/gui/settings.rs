@@ -252,7 +252,7 @@ mod tests {
 
     #[test]
     fn pia_matches_cli() {
-        // -s 64 -k 8
+        // -s 64 -k 8 --importance none
         let s = Settings {
             importance: false,
             size: 64,
@@ -264,7 +264,7 @@ mod tests {
 
     #[test]
     fn pia_importance_auto_matches_cli() {
-        // -s 48 -k 8 --importance auto (the GUI's PIA default, J7)
+        // -s 48 -k 8 (importance auto: the PIA default, J7, Q4)
         let s = Settings {
             size: 48,
             colors: 8,
@@ -289,7 +289,8 @@ mod tests {
 
     #[test]
     fn pia_colour_controls_match_cli() {
-        // -s 48 -k 8 --saturation 1.4 --contrast 1.2 --pre-saturation 1.3 --pre-contrast 0.9
+        // -s 48 -k 8 --importance none --saturation 1.4 --contrast 1.2 --pre-saturation 1.3
+        //   --pre-contrast 0.9
         let s = Settings {
             size: 48,
             colors: 8,
@@ -327,7 +328,7 @@ mod tests {
 
     #[test]
     fn pia_decimate_matches_cli() {
-        // -s 48 -k 8 --palette decimate-rgb, and decimate-oklab
+        // -s 48 -k 8 --importance none --palette decimate-rgb, and decimate-oklab
         for (palette, file) in [
             (PaletteChoice::DecimateRgb, "pia_s48_k8_decimate.png"),
             (

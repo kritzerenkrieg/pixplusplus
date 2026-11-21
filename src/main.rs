@@ -46,8 +46,9 @@ struct Cli {
     input_factor: f64,
     #[arg(long, value_enum, default_value_t = SpaceArg::Oklab)]
     space: SpaceArg,
-    /// Grayscale importance map (white = more palette mass), resized to the input; or `auto` for
-    /// spectral-residual saliency computed from the input (E7).
+    /// PIA importance map: `auto` (default, Q4) for spectral-residual saliency computed from the
+    /// input (E7), `none` for plain PIA, or a grayscale image (white = more palette mass),
+    /// resized to the input. Always off under --pyxeled-compat.
     #[arg(long)]
     importance: Option<PathBuf>,
     /// Output saturation, chroma × this (K4). Default: PIA 1.1 (the paper's palette boost, B5),
@@ -296,6 +297,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         MethodArg::Pixeloe if cli.importance.is_some() || cli.pyxeled_compat => {
             return Err("--importance and --pyxeled-compat are PIA-only".into());
         }
+        MethodArg::Pia
+            if cli.pyxeled_compat
+                && cli
+                    .importance
+                    .as_ref()
+                    .is_some_and(|p| p.as_os_str() != "none") =>
+        {
+            return Err("--pyxeled-compat runs without an importance map (Q4)".into());
+        }
         _ => {}
     }
     if cli.palette != PaletteArg::Native {
@@ -320,8 +330,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         return run_pixeloe(&cli, img, ow, oh, t_wall);
     }
 
+    // Q4: automatic by default; Pyxeled has no importance map, so compat runs without one.
     let importance = match cli.importance.as_ref() {
-        None => Importance::None,
+        None if cli.pyxeled_compat => Importance::None,
+        None => Importance::Auto,
+        Some(p) if p.as_os_str() == "none" => Importance::None,
         Some(p) if p.as_os_str() == "auto" => Importance::Auto,
         Some(p) => Importance::Map(image::open(p)?.to_luma8()),
     };

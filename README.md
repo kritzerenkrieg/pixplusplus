@@ -8,8 +8,9 @@ Two methods:
 - **Pixelated Image Abstraction (PIA)**, the CLI default (Gerstner et al., NPAR 2012 /
   C&G 2013). Superpixels are the output pixels; segmentation and palette are solved jointly
   with mass-constrained deterministic annealing in Oklab. Optional **importance map**: brighter
-  areas get more palette mass. Pix++ computes one with spectral-residual saliency
-  (`--importance auto`, on by default in the GUI), or the CLI takes your own grayscale map.
+  areas get more palette mass. By default Pix++ computes one with spectral-residual saliency
+  (`--importance auto`); `--importance none` gives plain PIA, and the CLI also takes your own
+  grayscale map.
 - **Pixelization on Outline Expansion (PixelOE)**: a port of [PixelOE](https://github.com/KohakuBlueleaf/PixelOE)'s torch backend
   (outline expansion, contrast-aware downscale, optional k-means palette and dithering).
   It matches upstream within 0.001 mean ΔE and is faster than torch on CPU.
@@ -54,8 +55,9 @@ PIA:
 ./target/release/pixplusplus art.png -o out.png -s 256 -k 16 --preview 4
 #   -s 256                 output size (longest side), -k 16 palette colours
 #   --preview 4            also write a 4x nearest-neighbour upscale
-#   --importance map.png   grayscale; brighter areas get more palette mass
-#   --importance auto      spectral-residual saliency computed from the input
+#   --importance auto      (default) spectral-residual saliency computed from the input
+#   --importance none      plain PIA, no importance map
+#   --importance map.png   your own grayscale map; brighter areas get more palette mass
 #   --stats run.json       timings / iterations / peak RSS
 #   --pyxeled-compat --space cielab   parity mode against Pyxeled
 ```

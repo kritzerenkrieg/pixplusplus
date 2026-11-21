@@ -6,7 +6,7 @@
 //! `BoxBlur.c`, `Convert.c`), so `--importance auto` gives the same map as the harness:
 //!
 //! 1. RGB -> L (ITU-R 601-2, Pillow `rgb2l`).
-//! 2. BOX resize to 64 wide (height `round(h * 64 / w)`, at least 8).
+//! 2. BOX resize to 64 wide (height `round(h * 64 / w)`, at least 8 and at most 512, Q2).
 //! 3. log-amplitude spectrum minus its 3x3 wrap-around mean, keep the phase, inverse FFT, |.|^2.
 //! 4. Scale to 0..255 as float32, truncate to L (Pillow `f2l`).
 //! 5. BILINEAR resize back to the input size.
@@ -19,6 +19,10 @@ use std::f64::consts::PI;
 const SR_WIDTH: usize = 64;
 /// Minimum working height.
 const SR_MIN_HEIGHT: usize = 8;
+/// Maximum working height (Q2). The transform below is a direct DFT, quadratic in the height,
+/// so an input more than 8x taller than wide would otherwise take minutes. Below the cap the
+/// map is unchanged (harness-identical, E7).
+const SR_MAX_HEIGHT: usize = 512;
 /// Gaussian blur radius as a fraction of the image width (harness: `w / 40`).
 const BLUR_DIV: f64 = 40.0;
 /// Pillow's GaussianBlur default number of box passes.
@@ -37,7 +41,8 @@ pub fn spectral_residual(rgb: &[[u8; 3]], w: usize, h: usize) -> Vec<u8> {
         .collect();
 
     let sw = SR_WIDTH;
-    let sh = ((h as f64 * sw as f64 / w as f64).round_ties_even() as usize).max(SR_MIN_HEIGHT);
+    let sh = ((h as f64 * sw as f64 / w as f64).round_ties_even() as usize)
+        .clamp(SR_MIN_HEIGHT, SR_MAX_HEIGHT);
     let small = resample(&gray, w, h, sw, sh, Filter::Box);
 
     let sal = residual(&small, sw, sh);
@@ -377,6 +382,20 @@ fn gaussian_blur(src: &[u8], w: usize, h: usize, radius: f32) -> Vec<u8> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Q2: an input 128x taller than wide stays fast (it used to take minutes) and still
+    /// gives a full-size map.
+    #[test]
+    fn very_tall_input_is_capped() {
+        let (w, h) = (8, 1024);
+        let rgb: Vec<[u8; 3]> = (0..w * h)
+            .map(|i| [(i % 251) as u8, (i / w % 199) as u8, 90])
+            .collect();
+        let t = std::time::Instant::now();
+        let map = spectral_residual(&rgb, w, h);
+        assert_eq!(map.len(), w * h);
+        assert!(t.elapsed().as_secs() < 20, "took {:?}", t.elapsed());
+    }
 
     /// Reference produced by `bench/saliency_ref.py` (the harness's `spectral_residual`).
     #[test]

@@ -92,7 +92,7 @@ Phases A to C were built before DLAD was adopted, so their B and C rows are stil
 - [x] Shared glue (J2): move the image-in, image-out code from `main.rs` into a library module used by the CLI. Done when: `cargo test`, `cargo clippy` and `cargo fmt --check` pass, and the smoke, `--importance auto`, `--pyxeled-compat` and `--method pixeloe -k 16` outputs are byte-identical to before. (2026-11-20: smoke, `--importance auto`, `--pyxeled-compat`, `--method pixeloe` with and without `-k 16`, error diffusion and two size edge cases byte-identical to `0e3ab51`; 28 tests pass, clippy and fmt clean.)
 - [x] GUI binary (J1–J4, J6): `pixplusplus-gui` behind the `gui` feature: open, method and settings, run on a worker thread with a spinner, preview, save. Done when: `cargo build --release --features gui` and `cargo clippy --features gui` are clean, the default `cargo build` pulls no GUI crates, and an image saved from the GUI matches the CLI output for the same settings. (2026-11-20: release build and clippy with `gui` clean; `cargo tree` shows no GUI crates in the default build; 6 GUI tests check the GUI image against CLI fixtures for PIA, PIA + auto importance, PixelOE with and without `-k`, and both methods with colour controls. Saving at scale 1 writes that same image.)
 - [x] GUI v2 (J7): two methods by full name, importance as a PIA toggle (on), utilitarian layout, shortcuts, stale-result notice, profile format 2 with migration. Done when: clippy with `gui` clean, GUI tests match CLI fixtures, version 1 profiles load with their old meaning. (2026-11-21: 39 library + 16 GUI tests pass, incl. migration of 5 v1 cases; layout checked on a window capture.)
-- [ ] Multiplatform builds (J5, Q1). Done when: Windows and macOS builds pass (CI or a remote machine), once Q1 is Decided.
+- [ ] Multiplatform builds (J5, Q1). Done when: Windows and macOS builds pass (CI or a remote machine), once Q1 is Decided. (2026-11-21: Q1 Decided; `.github/workflows/ci.yml` checks fmt, clippy with and without `gui`, tests and release builds on Ubuntu, Windows and macOS. Tick when it passes on all three.)
 
 ## Phase K: Colour fidelity (K1, K2, K4)
 
@@ -105,6 +105,11 @@ Goal: outputs keep the source's vivid colours, and saturation and contrast are a
 ## Phase L: GUI profiles (L1)
 
 - [x] Settings profiles (L1): save, save as, load and delete named profiles in the GUI. Done when: unit tests round-trip every setting through a profile file, reject unsafe names, and load a profile with missing fields using the defaults; `cargo clippy --features gui` and `cargo fmt --check` are clean; the default build is unchanged. (2026-11-20: `src/gui/profiles.rs`, 4 tests: round trip of every setting, save replaces, delete, missing fields, unsafe names, newer versions; 33 library + 10 GUI tests pass; clippy and fmt clean; default build has no GUI crates and its outputs are byte-identical.)
+
+## Follow-ups from Q2 and Q4
+
+- [x] Q4: PIA uses `--importance auto` by default; `--importance none` for plain PIA; compat always without. Done when: the default output equals the old `--importance auto` output, `--importance none` equals the old default, compat is unchanged. (2026-11-21: all three byte-identical.)
+- [x] Q2: cap the saliency working height at 512. Done when: an 8×1024 input finishes quickly with a full-size map, and normal images keep their map. (2026-11-21: test passes in about 1 s; smoke map byte-identical; harness test passes.)
 
 ## Cycle: feature and maintenance
 
@@ -119,4 +124,4 @@ No end state. Once the planned phases are done, work repeats this loop. Each tur
 - [x] Dependencies reviewed and upgraded where needed. Done when: `Cargo.lock` updated, `cargo test` and `cargo clippy` clean. (2026-11-15: crc32fast, itoa, syn patch bumps; 3 tests pass, 0 clippy warnings.)
 - [x] Parity still holds (A4, B1). Done when: `bench/parity.py` compat f64 ΔE vs Pyxeled < 1. (2026-11-15: f64 0.46, f32 1.60, 97 % / 94 % within ΔE 5; f32 output byte-identical to the pre-maintenance build.)
 - [x] Docs match reality. Done when: no Decided row contradicts the code, `ARCHITECTURE.md` or `docs/PORTING.md`. (2026-11-15: f64 parity row corrected from 0.49 to 0.46 in `PORTING.md`, `DECISIONS.md` B2 and `ARCHITECTURE.md` H.)
-- [ ] Stale rows closed or reopened. Done when: no TBD, Inspect or Question row older than one cycle. (2026-11-17: E1–E4 Decided; only G5 is open, and it is Inspect by design.)
+- [x] Stale rows closed or reopened. Done when: no TBD, Inspect or Question row older than one cycle. (2026-11-17: E1–E4 Decided; only G5 is open, and it is Inspect by design.) (2026-11-21: every row Decided; Q1–Q4 and K3 decided by the user.)

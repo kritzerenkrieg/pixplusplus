@@ -34,7 +34,7 @@ Working space is Oklab × 100, so these CIELAB-tuned constants stay on the same 
 | Pyxeled reference | 42 | 3.13 | — | — | — |
 | Pix++ compat, f64 | 41 | 3.10 | 0.46 | 97 % | 0.34 / 0.40 |
 | Pix++ compat, f32 | 29 | 3.17 | 1.60 | 94 % | 0.87 / 1.33 |
-| Pix++ Oklab (default) | 18 | 2.64 | 3.68 | 82 % | — |
+| Pix++ Oklab, no importance map (the default until Q4) | 18 | 2.64 | 3.68 | 82 % | — |
 
 (ΔE values are Oklab × 100.) The f32 gap comes from split decisions near ε_cluster: precision
 changes which clusters split, but not output quality.
