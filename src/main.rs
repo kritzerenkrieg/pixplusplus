@@ -402,7 +402,8 @@ fn run_pixeloe(
         img,
         ow,
         oh,
-        cli.size,
+        // The resolved long side: --width/--height override --size.
+        ow.max(oh),
         cli.input_factor,
         cli.pixeloe_options(0),
         &cli.color_adjust(cli.saturation.unwrap_or(1.0)),
@@ -460,4 +461,37 @@ fn run_pixeloe(
         std::fs::write(path, serde_json::to_string_pretty(&j)?)?;
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Raw PixelOE input (--input-factor 0) with --width/--height: the pixel size comes from
+    /// the resolved grid, not the default --size 128, which gave a 64x32 output here.
+    #[test]
+    fn pixeloe_raw_input_uses_explicit_size() {
+        let out = std::env::temp_dir().join(format!("pixplusplus_test_{}.png", std::process::id()));
+        let cli = Cli::parse_from([
+            "pixplusplus",
+            "in.png",
+            "-o",
+            out.to_str().unwrap(),
+            "--method",
+            "pixeloe",
+            "--input-factor",
+            "0",
+            "--width",
+            "8",
+            "--height",
+            "4",
+        ]);
+        let img = RgbImage::from_fn(64, 32, |x, y| {
+            image::Rgb([(x * 4) as u8, (y * 8) as u8, 90])
+        });
+        run_pixeloe(&cli, img, 8, 4, Instant::now()).unwrap();
+        let got = image::open(&out).unwrap();
+        let _ = std::fs::remove_file(&out);
+        assert_eq!((got.width(), got.height()), (8, 4));
+    }
 }

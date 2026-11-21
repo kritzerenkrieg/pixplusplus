@@ -12,7 +12,7 @@ usage:
 
 Each torch run is a separate process so its peak RSS is its own. Timings exclude imports.
 """
-import argparse, json, resource, subprocess, sys, time
+import argparse, json, math, resource, subprocess, sys, time
 from pathlib import Path
 
 import numpy as np
@@ -22,9 +22,16 @@ HERE = Path(__file__).resolve().parent
 PS = 4
 
 
+def round_half_up(x):
+    """Rust's f64::round for positive x: halves go up (Python's round() goes to even)."""
+    return math.floor(x + 0.5)
+
+
 def out_size(w, h, s):
-    """Pix++'s -s rule (src/main.rs): long side s, aspect kept, rounded."""
-    return (s, max(1, round(h * s / w))) if w >= h else (max(1, round(w * s / h)), s)
+    """Pix++'s -s rule (src/job.rs output_size): long side s, aspect kept, rounded."""
+    if w >= h:
+        return (s, max(1, round_half_up(h * s / w)))
+    return (max(1, round_half_up(w * s / h)), s)
 
 
 def cmd_prep(a):

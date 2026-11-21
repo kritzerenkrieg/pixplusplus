@@ -17,7 +17,9 @@ Two methods:
 
 ## Build
 
-Needs Rust stable ([rustup](https://rustup.rs)).
+Needs Rust stable ([rustup](https://rustup.rs)). The GUI on Linux also needs the GTK 3
+development files for its native file dialogs (Debian/Ubuntu: `sudo apt install libgtk-3-dev`);
+the CLI needs nothing else.
 
 ```sh
 cargo build --release                  # CLI: target/release/pixplusplus
