@@ -1,4 +1,4 @@
-//! Palette by colour decimation (K1, K5) and the balanced palette (K6, [`balanced`]).
+//! Palette by colour decimation (K1, K5) and the balanced palette (M1, [`balanced`]).
 //!
 //! Repeatedly merge the two closest colours, keeping the heavier one (more pixels) unchanged,
 //! until `k` remain; then map every pixel to its nearest remaining colour, with no dither.
@@ -26,7 +26,7 @@ pub enum Distance {
     Rgb,
     /// Euclidean distance in Oklab.
     Oklab,
-    /// Balanced palette (K6): hue families first, distinct accents by priority, then shades.
+    /// Balanced palette (M1): hue families first, distinct accents by priority, then shades.
     /// Pixels map by the hue-emphasis distance ([`balanced::W_L`]).
     Balanced,
 }

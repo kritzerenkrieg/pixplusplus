@@ -90,7 +90,7 @@ Colour controls, for both methods (1 = unchanged):
 #   --pre-contrast 1.2     so the palette itself picks more vivid or contrasty colours
 ```
 
-Palette (`--palette`, K1, K5, K6):
+Palette (`--palette`, K1, K5, M1):
 
 ```sh
 #   --palette balanced         the default: each main hue gets a colour first, then distinct accents

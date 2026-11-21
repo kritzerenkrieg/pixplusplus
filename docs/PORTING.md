@@ -26,6 +26,12 @@ Working space is Oklab × 100, so these CIELAB-tuned constants stay on the same 
    so the limit holds.
 5. Output colours are the palette *before* the final refinement (kept in compat only).
 
+Not a bug fix but a divergence on the default path: since M1 (2026-11-21) the default palette
+is balanced. PIA solves at `pia_solve_k(k)` colours and the result is decimated to `k` (K1, M1),
+so the default output's palette is not the solver's. `--palette native` gives the solver's
+palette, and `--pyxeled-compat` always uses it. The parity rows below use compat and are
+unaffected.
+
 ## Parity check (milestone 2)
 `bench/parity.py` on Pyxeled's own example (mountains, 614×396 → 128×83, K = 64, CIELAB):
 

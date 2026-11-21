@@ -33,7 +33,7 @@ struct Cli {
     /// Palette size (hard limit). PIA default 16; PixelOE quantises only when given (G8).
     #[arg(short = 'k', long, value_parser = parse_colors)]
     colors: Option<usize>,
-    /// How the -k palette is made (K1, K5, K6). `balanced` (default): hue families first, then
+    /// How the -k palette is made (K1, K5, M1). `balanced` (default): hue families first, then
     /// distinct accents and shades by priority. `native`: the method's own (PIA's solver,
     /// PixelOE's k-means). `decimate-oklab` / `decimate-rgb`: merge the closest colours,
     /// measured in Oklab or RGB, keeping the more common one. All but native map each pixel to
@@ -128,7 +128,7 @@ enum PaletteArg {
 }
 
 impl PaletteArg {
-    /// K5, K6: decimation in Oklab or RGB, or the balanced palette; `None` = the method's own.
+    /// K5, M1: decimation in Oklab or RGB, or the balanced palette; `None` = the method's own.
     fn distance(self) -> Option<Distance> {
         match self {
             PaletteArg::Balanced => Some(Distance::Balanced),
@@ -241,11 +241,18 @@ fn parse_thickness(s: &str) -> Result<usize, String> {
 }
 
 impl Cli {
-    /// The palette (K6): balanced unless given; native under --pyxeled-compat (A4, B1).
+    /// The palette (M1): balanced unless given; native under --pyxeled-compat (A4, B1), and
+    /// under PixelOE when a quantisation flag is given (`--oe-dither`, `--oe-quant`,
+    /// `--oe-post-match`), since only the native palette uses them.
     fn palette(&self) -> PaletteArg {
         match self.palette {
             Some(p) => p,
             None if self.pyxeled_compat => PaletteArg::Native,
+            None if self.method == MethodArg::Pixeloe
+                && (self.oe_dither.is_some() || self.oe_quant.is_some() || self.oe_post_match) =>
+            {
+                PaletteArg::Native
+            }
             None => PaletteArg::Balanced,
         }
     }
@@ -562,6 +569,32 @@ mod tests {
             (ok.width, ok.height, ok.input_factor),
             (Some(8), Some(4), 0.0)
         );
+    }
+
+    #[test]
+    fn pixeloe_quantisation_flags_keep_the_native_palette() {
+        let pal = |args: &[&str]| {
+            let mut v = vec!["pixplusplus", "in.png", "-o", "out.png"];
+            v.extend_from_slice(args);
+            Cli::try_parse_from(v).unwrap().palette()
+        };
+        assert_eq!(pal(&[]), PaletteArg::Balanced);
+        assert_eq!(
+            pal(&["--method", "pixeloe", "-k", "8"]),
+            PaletteArg::Balanced
+        );
+        for flag in [
+            &["--oe-dither", "ordered"][..],
+            &["--oe-quant", "kmeans"],
+            &["--oe-post-match"],
+        ] {
+            let mut a = vec!["--method", "pixeloe", "-k", "8"];
+            a.extend_from_slice(flag);
+            assert_eq!(pal(&a), PaletteArg::Native, "{flag:?}");
+            a.extend_from_slice(&["--palette", "balanced"]);
+            assert_eq!(pal(&a), PaletteArg::Balanced, "{flag:?}");
+        }
+        assert_eq!(pal(&["--pyxeled-compat"]), PaletteArg::Native);
     }
 
     #[test]

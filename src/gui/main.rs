@@ -794,8 +794,11 @@ fn pixeloe_ui(ui: &mut egui::Ui, s: &mut Settings) {
             ui.end_row();
         });
 
-    ui.add_enabled_ui(s.oe_quantise, |ui| {
-        ui.label(RichText::new("When limiting colours").weak());
+    // M1: only the native palette (k-means) quantises with these; the others map without dither.
+    let native = s.palette == PaletteChoice::Native;
+    ui.add_enabled_ui(s.oe_quantise && native, |ui| {
+        ui.label(RichText::new("When limiting colours").weak())
+            .on_disabled_hover_text("Used by the native palette only.");
         egui::Grid::new("pixeloe_quant")
             .num_columns(2)
             .spacing([8.0, 6.0])

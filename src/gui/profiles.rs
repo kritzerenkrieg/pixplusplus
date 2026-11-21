@@ -3,13 +3,13 @@
 //! File shape: `{"version": 3, "settings": {...}}`. Missing settings take the defaults
 //! (`Settings` is `#[serde(default)]`), so profiles written by older builds keep loading.
 //! Version 1 had three methods and an importance source; [`migrate_v1`] maps it (J7).
-//! Before version 3 a missing palette meant native; [`migrate_v2`] keeps that (K6).
+//! Before version 3 a missing palette meant native; [`migrate_v2`] keeps that (M1).
 
 use crate::settings::Settings;
 use std::path::{Path, PathBuf};
 
 /// Profile file format version. 2: two methods, importance on/off (J7). 3: the default
-/// palette is balanced (K6).
+/// palette is balanced (M1).
 const VERSION: u32 = 3;
 /// Longest profile name, in characters.
 const MAX_NAME: usize = 64;
@@ -43,7 +43,7 @@ fn migrate_v1(settings: &mut serde_json::Value) {
     s.insert("importance".into(), importance.into());
 }
 
-/// Version 2 → 3: the default palette became balanced (K6), so a profile that left the palette
+/// Version 2 → 3: the default palette became balanced (M1), so a profile that left the palette
 /// out, meaning native when it was saved, says native.
 fn migrate_v2(settings: &mut serde_json::Value) {
     if let Some(s) = settings.as_object_mut() {

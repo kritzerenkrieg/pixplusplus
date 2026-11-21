@@ -1,4 +1,4 @@
-//! Balanced palette (K6): main colours first, distinct accents by priority, then shades.
+//! Balanced palette (M1): main colours first, distinct accents by priority, then shades.
 //!
 //! Plain decimation (K1) spends slots on whatever is far apart, and lightness counts as much as
 //! hue there, so the shading steps of one large area each keep a slot while a small accent, or a
@@ -26,11 +26,11 @@
 use super::{coords, Distance};
 use std::cmp::Ordering;
 
-/// Weight of Oklab lightness against a and b (K6). Below 1, hue and chroma count more than
+/// Weight of Oklab lightness against a and b (M1). Below 1, hue and chroma count more than
 /// lightness, so shades of one hue sit closer together than different hues. Pix++ choice,
 /// tuned on the 2026-11-21 showcase.
 pub const W_L: crate::F = 0.5;
-/// Neighbours in each colour's density estimate (the "k nearest" of K6). Pix++ choice.
+/// Neighbours in each colour's density estimate (the "k nearest" of M1). Pix++ choice.
 const KNN: usize = 8;
 /// Linking radius for families, in the hue-emphasis metric (Oklab ×100 units): colours further
 /// apart than this never join one family directly. Also the density kernel's width. Pix++

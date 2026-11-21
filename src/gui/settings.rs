@@ -48,7 +48,7 @@ impl Method {
     }
 }
 
-/// How the limited palette is made (K1, K5, K6): balanced (the default), the method's own, or
+/// How the limited palette is made (K1, K5, M1): balanced (the default), the method's own, or
 /// decimation in Oklab or RGB.
 #[derive(Clone, Copy, PartialEq, Eq, Debug, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "kebab-case")]
@@ -140,7 +140,7 @@ fn oe_over_gui_defaults<'de, D: serde::Deserializer<'de>>(d: D) -> Result<Option
 }
 
 impl Settings {
-    /// `--palette balanced|decimate-oklab|decimate-rgb` (K5, K6); `None` = the method's own.
+    /// `--palette balanced|decimate-oklab|decimate-rgb` (K5, M1); `None` = the method's own.
     fn decimate(&self) -> Option<Distance> {
         match self.palette {
             PaletteChoice::Balanced => Some(Distance::Balanced),
@@ -380,7 +380,7 @@ mod tests {
 
     #[test]
     fn balanced_default_matches_cli() {
-        // The defaults on both sides (K6): -s 48 -k 8, and -s 48 -k 8 --method pixeloe (the
+        // The defaults on both sides (M1): -s 48 -k 8, and -s 48 -k 8 --method pixeloe (the
         // balanced palette maps without dither, so the CLI's ordered dither doesn't apply).
         let s = Settings {
             size: 48,

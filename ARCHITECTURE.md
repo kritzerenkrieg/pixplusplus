@@ -39,7 +39,7 @@ Turns concept art into pixel art with a hard palette limit, using Pixelated Imag
 | `src/main.rs` | Argument parsing, `--method` pia or pixeloe (G4), image I/O, input downscale (B3, G7), stats JSON | lib | Output files |
 | `src/pia.rs` | Solver: superpixel refinement, MCDA association and palette refinement, splits, final merge (B4) | color, rayon | `Params`, `Output`, `Stats` |
 | `src/color.rs` | sRGB ↔ Oklab ×100 / CIELAB, distance | none | `Space`, `F` (B2) |
-| `src/decimate.rs`, `src/decimate/balanced.rs` | Palette by decimation in RGB or Oklab (K1, K5) and the balanced palette, the default (K6): hue families, accents and shades by priority | color | `Distance`, `palette`, `mapping` |
+| `src/decimate.rs`, `src/decimate/balanced.rs` | Palette by decimation in RGB or Oklab (K1, K5) and the balanced palette, the default (M1): hue families, accents and shades by priority | color | `Distance`, `palette`, `mapping` |
 | `src/saliency.rs` | Spectral-residual saliency for `--importance auto`, matching Pillow's rounding (E7) | none | `spectral_residual` |
 | `src/pixeloe/` | PixelOE port (G1–G9): `lab`, `morph`, `outline`, `sharpen`, `downscale`, `color`, `pipeline::pixelize` | none | `pixelize`, `Options` |
 | `src/lib.rs` | Public API re-exports, peak RSS | pia, color | none |

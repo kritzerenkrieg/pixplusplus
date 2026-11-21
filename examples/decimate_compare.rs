@@ -1,4 +1,4 @@
-//! K1, K6 comparison: native palette vs decimation with RGB and Oklab distance and the balanced
+//! K1, M1 comparison: native palette vs decimation with RGB and Oklab distance and the balanced
 //! palette, both methods.
 //!
 //! `cargo run --release --example decimate_compare SRC_DIR OUT_DIR [SIZE]`
