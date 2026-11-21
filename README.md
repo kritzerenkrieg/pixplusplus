@@ -75,7 +75,8 @@ PixelOE:
 
 ```sh
 ./target/release/pixplusplus art.png -o out.png -s 128 --method pixeloe          # unquantised
-./target/release/pixplusplus art.png -o out.png -s 128 --method pixeloe -k 16    # k-means + dither
+./target/release/pixplusplus art.png -o out.png -s 128 --method pixeloe -k 16    # balanced palette, no dither (M1)
+./target/release/pixplusplus art.png -o out.png -s 128 --method pixeloe -k 16 --palette native  # k-means + dither
 #   --oe-thickness 3  --oe-mode contrast|k-centroid|lanczos|nearest|bilinear|...
 #   --oe-sharpen unsharp|laplacian  --oe-dither ordered|error-diffusion|none  --oe-no-match
 #   --oe-post-match   upstream's colour fix after -k (output can then exceed k colours)

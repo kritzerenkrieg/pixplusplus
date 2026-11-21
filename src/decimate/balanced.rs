@@ -16,8 +16,10 @@
 //!    that's close to its neighbours ranks low. There's no quota: all gains form one priority
 //!    list, re-ranked after each pick, and `k` picks are made; a family's splits wait for its
 //!    first slot.
-//! 3. **Representatives.** Each final cluster keeps its heaviest exact colour, as K1 does, so the
-//!    palette is made of input colours and isn't greyed by averaging.
+//! 3. **Representatives.** Each final cluster keeps the colour of its heaviest bucket (that
+//!    bucket's most common exact colour), as K1 keeps the heavier colour, so the palette is
+//!    made of input colours and isn't greyed by averaging. Bucket weight, not the exact
+//!    colour's own count, decides: on the showcase it gave lower error (user choice, M1).
 //!
 //! Costs use the same hue-emphasis metric as the families, so a lightness step counts for less
 //! than an equal step in hue or chroma. Pixels map to the nearest palette colour in that metric

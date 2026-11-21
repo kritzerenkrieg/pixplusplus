@@ -54,7 +54,9 @@ pub enum Importance {
 pub struct PiaResult {
     pub image: RgbImage,
     pub output: Output,
-    /// The parameters that ran, with the output grid after the I1 cap.
+    /// The parameters that ran, with the output grid after the I1 cap. With a decimating palette
+    /// (K1, M1), `k_max` is the requested limit, not the larger size the solver ran at
+    /// ([`decimate::pia_solve_k`]).
     pub params: Params,
     /// Input size after the `input_factor` downscale.
     pub input_w: u32,
@@ -253,7 +255,10 @@ pub fn pixeloe_image(
     if let Some((d, k)) = decimate_to {
         decimate::decimate(&mut image, k, d);
         options.quant = Some(k);
+        // Decimation maps without dither and the pipeline never quantised, so post-match
+        // didn't run either; report both as off.
         options.dither = Dither::None;
+        options.post_match = false;
     }
     let solve_ms = t.elapsed().as_secs_f64() * 1000.0;
     adjust.post.apply(&mut image);

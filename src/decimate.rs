@@ -296,6 +296,20 @@ mod tests {
     }
 
     #[test]
+    fn balanced_representative_comes_from_the_heaviest_bucket() {
+        // 120 and 121 share a bucket (12 px together); 128 alone has 10 px. The cluster keeps the
+        // heaviest bucket's own colour, 120, not the most common exact colour, 128 (user choice,
+        // 2026-11-21: on the showcase this gave lower error than exact counts, M1).
+        let px = [[120u8; 3]; 6]
+            .into_iter()
+            .chain([[121; 3]; 6])
+            .chain([[128; 3]; 10]);
+        let v: Vec<[u8; 3]> = px.collect();
+        let img = RgbImage::from_fn(22, 1, |x, _| image::Rgb(v[x as usize]));
+        assert_eq!(palette(&img, 1, Distance::Balanced), vec![[120; 3]]);
+    }
+
+    #[test]
     fn deterministic() {
         for dist in [Distance::Oklab, Distance::Balanced] {
             let (mut a, mut b) = (noisy(), noisy());
