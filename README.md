@@ -17,9 +17,11 @@ Two methods:
 
 ## Build
 
-Needs Rust stable ([rustup](https://rustup.rs)). The GUI on Linux also needs the GTK 3
-development files for its native file dialogs (Debian/Ubuntu: `sudo apt install libgtk-3-dev`);
-the CLI needs nothing else.
+Needs Rust stable ([rustup](https://rustup.rs)) and the C compiler and linker Rust builds with:
+on Debian/Ubuntu `sudo apt install build-essential`, on Windows the Visual Studio C++ Build
+Tools (rustup's installer offers them). That is all the CLI needs. The GUI on Linux also needs
+the GTK 3 development files for its native file dialogs (Debian/Ubuntu:
+`sudo apt install libgtk-3-dev`).
 
 ```sh
 cargo build --release                  # CLI: target/release/pixplusplus
