@@ -21,11 +21,11 @@ struct Cli {
     #[arg(short, long)]
     output: PathBuf,
     /// Output long side in pixels (aspect preserved). Ignored if --width and --height are given.
-    #[arg(short, long, default_value_t = 128)]
+    #[arg(short, long, default_value_t = 128, value_parser = parse_dimension)]
     size: usize,
-    #[arg(long)]
+    #[arg(long, value_parser = parse_dimension)]
     width: Option<usize>,
-    #[arg(long)]
+    #[arg(long, value_parser = parse_dimension)]
     height: Option<usize>,
     /// Algorithm (E8, G4).
     #[arg(long, value_enum, default_value_t = MethodArg::Pia)]
@@ -211,6 +211,16 @@ fn parse_amount(s: &str) -> Result<f32, String> {
 }
 
 /// PixelOE has soft circle kernels for thickness 1..=6 only (`morph::kernel`).
+/// Output sizes must be at least 1 pixel (a zero axis panicked in PixelOE's morphology).
+fn parse_dimension(s: &str) -> Result<usize, String> {
+    match s.parse::<usize>() {
+        Ok(v) if v >= 1 => Ok(v),
+        _ => Err(format!(
+            "must be a whole number of pixels, at least 1, got {s}"
+        )),
+    }
+}
+
 /// `-k` must be at least 1: both palettes and decimation need a colour to map to.
 fn parse_colors(s: &str) -> Result<usize, String> {
     match s.parse::<usize>() {
@@ -520,6 +530,23 @@ mod tests {
         assert_eq!(parse("0").unwrap().input_factor, 0.0);
         let default = Cli::try_parse_from(["pixplusplus", "in.png", "-o", "o.png"]).unwrap();
         assert_eq!(default.input_factor, 4.0);
+    }
+
+    #[test]
+    fn zero_output_size_is_rejected() {
+        let parse = |args: &[&str]| {
+            let mut a = vec!["pixplusplus", "in.png", "-o", "o.png"];
+            a.extend_from_slice(args);
+            Cli::try_parse_from(a)
+        };
+        assert!(parse(&["-s", "0"]).is_err());
+        assert!(parse(&["--width", "0", "--height", "8"]).is_err());
+        assert!(parse(&["--width", "8", "--height", "0"]).is_err());
+        let ok = parse(&["--width", "8", "--height", "4", "--input-factor", "0"]).unwrap();
+        assert_eq!(
+            (ok.width, ok.height, ok.input_factor),
+            (Some(8), Some(4), 0.0)
+        );
     }
 
     #[test]

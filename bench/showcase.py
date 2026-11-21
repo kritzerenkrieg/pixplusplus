@@ -83,25 +83,29 @@ main{{max-width:1400px;margin:0 auto;padding:12px 16px}}h1{{font-size:16px;margi
 .px{{image-rendering:pixelated;image-rendering:crisp-edges}}
 figure{{margin:0}}.miss{{color:var(--mut);text-align:center}}
 .sz{{writing-mode:vertical-rl;transform:rotate(180deg);text-align:center;color:var(--mut)}}
-#zoom{{position:fixed;inset:0;background:rgba(0,0,0,.85);display:none;align-items:center;justify-content:center;z-index:9;cursor:zoom-out}}
+#zoom{{border:0;padding:0;background:transparent;max-width:100vw;max-height:100vh;cursor:zoom-out}}
+#zoom::backdrop{{background:rgba(0,0,0,.85)}}
 #zoom img{{max-width:96vw;max-height:96vh;image-rendering:pixelated}}
-.zb{{all:unset;display:block;width:100%;cursor:zoom-in}}.zb:focus-visible,#zoom:focus-visible{{outline:2px solid #6af;outline-offset:2px}}
+.zb{{all:unset;display:block;width:100%;cursor:zoom-in}}.zb:focus-visible{{outline:2px solid #6af;outline-offset:2px}}
 </style></head><body><main>
 <h1>Pix++ showcase</h1><div class="mut">K = {a.k}, output width {' / '.join(map(str, a.sizes))} px. Click a tile (or Tab to it and press Enter) to enlarge; Esc closes.</div>
 {hdr}{''.join(rows)}
-</main><div id="zoom" role="dialog" aria-modal="true" aria-label="Enlarged image" tabindex="-1"><img alt=""></div>
+</main><dialog id="zoom" aria-label="Enlarged image"><button type="button" class="zb" aria-label="Close"><img alt=""></button></dialog>
 <script>
-const z=document.getElementById('zoom'),zi=z.querySelector('img');let from=null;
-// Each tile sits in a native button, so Tab reaches it and Enter or Space opens it.
+// A native modal <dialog>: the browser keeps Tab inside it, closes it on Esc and returns focus
+// to the tile that opened it. The image is the dialog's one button, so Enter, Space or a click
+// closes it too.
+const z=document.getElementById('zoom'),zb=z.querySelector('button'),zi=z.querySelector('img');let from=null;
 document.querySelectorAll('main img').forEach(i=>{{
+  if(z.contains(i))return;
   const b=document.createElement('button');b.className='zb';b.type='button';
   b.setAttribute('aria-label','Enlarge '+(i.alt||'image'));
   i.replaceWith(b);b.append(i);
-  b.onclick=()=>{{from=b;zi.src=i.src;zi.alt=i.alt;z.style.display='flex';z.focus()}};
+  b.onclick=()=>{{from=b;zi.src=i.src;zi.alt=i.alt;z.showModal();zb.focus()}};
 }});
-const close=()=>{{z.style.display='none';if(from)from.focus()}};
-z.onclick=close;
-z.onkeydown=e=>{{if(['Escape','Enter',' '].includes(e.key)){{e.preventDefault();close()}}}};
+zb.onclick=()=>z.close();
+z.onclick=e=>{{if(e.target===z)z.close()}};
+z.addEventListener('close',()=>{{if(from)from.focus()}});
 </script></body></html>"""
 out = Path(a.out)
 out.parent.mkdir(parents=True, exist_ok=True)

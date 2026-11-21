@@ -130,6 +130,8 @@ struct App {
     job: Option<Receiver<Result<RunOutput, String>>>,
     /// The settings of the job in flight.
     job_settings: Option<Settings>,
+    /// A PNG export in flight (upscaling and encoding can take seconds at large scales).
+    export: Option<Receiver<Result<PathBuf, String>>>,
     save_scale: u32,
 }
 
@@ -144,6 +146,7 @@ impl Default for App {
             status: Status::Idle,
             job: None,
             job_settings: None,
+            export: None,
             save_scale: 1,
         }
     }
@@ -202,6 +205,15 @@ impl App {
     }
 
     fn poll(&mut self) {
+        if let Some(rx) = &self.export {
+            if let Ok(r) = rx.try_recv() {
+                self.export = None;
+                self.status = match r {
+                    Ok(path) => Status::Info(format!("Saved {}", path.display())),
+                    Err(e) => Status::Error(e),
+                };
+            }
+        }
         let Some(rx) = &self.job else { return };
         let Ok(r) = rx.try_recv() else { return };
         self.job = None;
@@ -230,7 +242,7 @@ impl App {
         }
     }
 
-    fn save_dialog(&mut self) {
+    fn save_dialog(&mut self, ctx: &egui::Context) {
         let (Some(res), Some(src)) = (&self.result, &self.source) else {
             return;
         };
@@ -260,15 +272,23 @@ impl App {
                 return;
             }
         }
-        let img = if self.save_scale > 1 {
-            pixplusplus::job::upscale(&res.image, self.save_scale)
-        } else {
-            res.image.clone()
-        };
-        self.status = match img.save(&path) {
-            Ok(()) => Status::Info(format!("Saved {}", path.display())),
-            Err(e) => Status::Error(format!("Could not save {}: {e}", path.display())),
-        };
+        // Upscale and encode on a worker thread so the window keeps repainting.
+        let (img, scale, ctx) = (res.image.clone(), self.save_scale, ctx.clone());
+        let (tx, rx) = channel();
+        std::thread::spawn(move || {
+            let img = if scale > 1 {
+                pixplusplus::job::upscale(&img, scale)
+            } else {
+                img
+            };
+            let r = img
+                .save(&path)
+                .map(|()| path.clone())
+                .map_err(|e| format!("Could not save {}: {e}", path.display()));
+            let _ = tx.send(r);
+            ctx.request_repaint();
+        });
+        self.export = Some(rx);
     }
 
     /// Writes the current settings as profile `name` (overwrite already confirmed).
@@ -849,7 +869,7 @@ impl App {
     /// Keyboard shortcuts: Ctrl+O open, Ctrl+Enter run, Ctrl+S save.
     fn shortcuts(&mut self, ctx: &egui::Context) {
         use egui::{Key, KeyboardShortcut, Modifiers};
-        if self.job.is_some() || self.profiles.dialog.is_some() {
+        if self.job.is_some() || self.export.is_some() || self.profiles.dialog.is_some() {
             return;
         }
         let pressed = |k: Key| {
@@ -862,7 +882,7 @@ impl App {
             self.start(ctx);
         }
         if pressed(Key::S) && self.result.is_some() {
-            self.save_dialog();
+            self.save_dialog(ctx);
         }
     }
 
@@ -883,7 +903,7 @@ impl App {
                     .on_disabled_hover_text("Run first, then save the result.")
                     .clicked()
                 {
-                    self.save_dialog();
+                    self.save_dialog(&ui.ctx().clone());
                 }
                 ui.add_enabled(
                     has_result,
@@ -910,7 +930,11 @@ impl App {
         ui.horizontal(|ui| {
             if running {
                 ui.spinner();
-                ui.label("Working…");
+                ui.label(if self.export.is_some() {
+                    "Saving…"
+                } else {
+                    "Working…"
+                });
             } else {
                 match &self.status {
                     Status::Idle => {
@@ -957,7 +981,11 @@ impl App {
             .show(ui, |ui| {
                 ui.add_space(6.0);
                 let can_run = self.source.is_some() && !running && !modal;
-                let label = if running { "Working…" } else { "▶  Run" };
+                let label = match (running, self.export.is_some()) {
+                    (_, true) => "Saving…",
+                    (true, false) => "Working…",
+                    _ => "▶  Run",
+                };
                 let run = ui
                     .add_enabled(
                         can_run,
@@ -988,7 +1016,7 @@ impl App {
             .result
             .as_ref()
             .is_some_and(|r| r.settings != self.settings);
-        if view == View::Result && stale && self.job.is_none() {
+        if view == View::Result && stale && self.job.is_none() && self.export.is_none() {
             ui.horizontal(|ui| {
                 ui.label(
                     RichText::new("Settings changed since this result.")
@@ -1038,7 +1066,8 @@ impl eframe::App for App {
         let ctx = ui.ctx().clone();
         self.poll();
         self.shortcuts(&ctx);
-        let running = self.job.is_some();
+        // Settings and file actions wait for both the job and an export in flight.
+        let running = self.job.is_some() || self.export.is_some();
 
         if let Some(p) = ctx.input(|i| {
             i.raw.dropped_files.iter().find_map(|f| {
