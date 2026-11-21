@@ -104,9 +104,9 @@ pub fn outline_expansion(
     let plane = img.h * img.w;
     let mut out = Img::new(img.c, img.h, img.w);
     for c in 0..img.c {
-        for i in 0..plane {
+        for (i, &wi) in w.data[..plane].iter().enumerate() {
             let o = c * plane + i;
-            out.data[o] = e.data[o] * w.data[i] + d.data[o] * (1.0 - w.data[i]);
+            out.data[o] = e.data[o] * wi + d.data[o] * (1.0 - wi);
         }
     }
     let oc = kernel((erode_iters.max(dilate_iters).saturating_sub(1)).max(1));
