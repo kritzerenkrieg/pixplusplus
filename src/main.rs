@@ -33,12 +33,14 @@ struct Cli {
     /// Palette size (hard limit). PIA default 16; PixelOE quantises only when given (G8).
     #[arg(short = 'k', long, value_parser = parse_colors)]
     colors: Option<usize>,
-    /// How the -k palette is made (K1, K5). `native`: the method's own (PIA's solver, PixelOE's
-    /// k-means). `decimate-oklab` / `decimate-rgb`: merge the closest colours, measured in
-    /// Oklab or RGB, keeping the more common one, then map each pixel to its nearest colour, no
-    /// dither. Under PixelOE they need -k.
-    #[arg(long, value_enum, default_value_t = PaletteArg::Native)]
-    palette: PaletteArg,
+    /// How the -k palette is made (K1, K5, M1). `balanced` (default): hue families first, then
+    /// distinct accents and shades by priority. `native`: the method's own (PIA's solver,
+    /// PixelOE's k-means). `decimate-oklab` / `decimate-rgb`: merge the closest colours,
+    /// measured in Oklab or RGB, keeping the more common one. All but native map each pixel to
+    /// its nearest colour, no dither. Default under --pyxeled-compat: native (A4). Under PixelOE
+    /// they need -k; without -k the default does nothing.
+    #[arg(long, value_enum)]
+    palette: Option<PaletteArg>,
     /// Downscale the input so it is at most this many times the output (0 = use input as is).
     /// Under PixelOE, also the pixel size; the input is resized to exactly this times the output
     /// (G7).
@@ -119,15 +121,17 @@ struct Cli {
 
 #[derive(clap::ValueEnum, Clone, Copy, Debug, PartialEq, Eq)]
 enum PaletteArg {
+    Balanced,
     Native,
     DecimateOklab,
     DecimateRgb,
 }
 
 impl PaletteArg {
-    /// K5: decimation in Oklab or RGB; `None` = the method's own palette.
+    /// K5, M1: decimation in Oklab or RGB, or the balanced palette; `None` = the method's own.
     fn distance(self) -> Option<Distance> {
         match self {
+            PaletteArg::Balanced => Some(Distance::Balanced),
             PaletteArg::Native => None,
             PaletteArg::DecimateOklab => Some(Distance::Oklab),
             PaletteArg::DecimateRgb => Some(Distance::Rgb),
@@ -237,6 +241,22 @@ fn parse_thickness(s: &str) -> Result<usize, String> {
 }
 
 impl Cli {
+    /// The palette (M1): balanced unless given; native under --pyxeled-compat (A4, B1), and
+    /// under PixelOE when a quantisation flag is given (`--oe-dither`, `--oe-quant`,
+    /// `--oe-post-match`), since only the native palette uses them.
+    fn palette(&self) -> PaletteArg {
+        match self.palette {
+            Some(p) => p,
+            None if self.pyxeled_compat => PaletteArg::Native,
+            None if self.method == MethodArg::Pixeloe
+                && (self.oe_dither.is_some() || self.oe_quant.is_some() || self.oe_post_match) =>
+            {
+                PaletteArg::Native
+            }
+            None => PaletteArg::Balanced,
+        }
+    }
+
     /// K4 adjustments. `post_saturation` is the method's own default when not given.
     fn color_adjust(&self, post_saturation: F) -> ColorAdjust {
         ColorAdjust {
@@ -342,12 +362,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
         _ => {}
     }
-    if cli.palette != PaletteArg::Native {
+    if cli.palette.is_some_and(|p| p != PaletteArg::Native) {
         if cli.pyxeled_compat {
-            return Err("--palette decimate-* can't be combined with --pyxeled-compat (A4)".into());
+            return Err(
+                "--palette other than native can't be combined with --pyxeled-compat (A4)".into(),
+            );
         }
         if cli.method == MethodArg::Pixeloe && cli.colors.is_none() {
-            return Err("--palette decimate-* needs -k under --method pixeloe (G8)".into());
+            return Err("--palette other than native needs -k under --method pixeloe (G8)".into());
         }
     }
     if let Some(t) = cli.threads {
@@ -390,7 +412,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         cli.input_factor,
         &importance,
         &cli.color_adjust(1.0),
-        cli.palette.distance(),
+        cli.palette().distance(),
     );
     if let Some(w) = &r.warning {
         eprintln!("warning: {w}");
@@ -441,7 +463,7 @@ fn run_pixeloe(
         cli.input_factor,
         cli.pixeloe_options(0),
         &cli.color_adjust(cli.saturation.unwrap_or(1.0)),
-        cli.palette.distance(),
+        cli.palette().distance(),
     );
     let (png, opts, palette) = (&r.image, &r.options, &r.palette);
     png.save(&cli.output)?;
@@ -547,6 +569,32 @@ mod tests {
             (ok.width, ok.height, ok.input_factor),
             (Some(8), Some(4), 0.0)
         );
+    }
+
+    #[test]
+    fn pixeloe_quantisation_flags_keep_the_native_palette() {
+        let pal = |args: &[&str]| {
+            let mut v = vec!["pixplusplus", "in.png", "-o", "out.png"];
+            v.extend_from_slice(args);
+            Cli::try_parse_from(v).unwrap().palette()
+        };
+        assert_eq!(pal(&[]), PaletteArg::Balanced);
+        assert_eq!(
+            pal(&["--method", "pixeloe", "-k", "8"]),
+            PaletteArg::Balanced
+        );
+        for flag in [
+            &["--oe-dither", "ordered"][..],
+            &["--oe-quant", "kmeans"],
+            &["--oe-post-match"],
+        ] {
+            let mut a = vec!["--method", "pixeloe", "-k", "8"];
+            a.extend_from_slice(flag);
+            assert_eq!(pal(&a), PaletteArg::Native, "{flag:?}");
+            a.extend_from_slice(&["--palette", "balanced"]);
+            assert_eq!(pal(&a), PaletteArg::Balanced, "{flag:?}");
+        }
+        assert_eq!(pal(&["--pyxeled-compat"]), PaletteArg::Native);
     }
 
     #[test]

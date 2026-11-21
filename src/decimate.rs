@@ -1,4 +1,4 @@
-//! Palette by colour decimation (K1).
+//! Palette by colour decimation (K1, K5) and the balanced palette (M1, [`balanced`]).
 //!
 //! Repeatedly merge the two closest colours, keeping the heavier one (more pixels) unchanged,
 //! until `k` remain; then map every pixel to its nearest remaining colour, with no dither.
@@ -10,6 +10,8 @@
 //! pixels each). Each bucket is represented by its most common exact colour, so every palette
 //! colour is one of the input's colours. If the buckets number `k` or fewer, the merge runs on
 //! the exact colours when there are at most `MAX_BUCKETS` of them, else on finer buckets.
+
+mod balanced;
 
 use crate::color::srgb_to_oklab;
 use crate::F;
@@ -24,6 +26,9 @@ pub enum Distance {
     Rgb,
     /// Euclidean distance in Oklab.
     Oklab,
+    /// Balanced palette (M1): hue families first, distinct accents by priority, then shades.
+    /// Pixels map by the hue-emphasis distance ([`balanced::W_L`]).
+    Balanced,
 }
 
 /// PIA palette size to solve at before decimating to `k` (K1): 4k, at least 64, at most 256,
@@ -41,8 +46,17 @@ const FINE_BITS: u32 = 5;
 fn coords(c: [u8; 3], d: Distance) -> [F; 3] {
     match d {
         Distance::Rgb => c.map(|v| v as F),
-        Distance::Oklab => srgb_to_oklab(c.map(|v| v as F / 255.0)).map(|v| v * 100.0),
+        Distance::Oklab => oklab100(c),
+        Distance::Balanced => {
+            let [l, a, b] = oklab100(c);
+            [balanced::W_L * l, a, b]
+        }
     }
+}
+
+/// Oklab ×100 (L 0..100, a and b roughly ±40) of an 8-bit sRGB colour.
+fn oklab100(c: [u8; 3]) -> [F; 3] {
+    srgb_to_oklab(c.map(|v| v as F / 255.0)).map(|v| v * 100.0)
 }
 
 fn d2(a: &[F; 3], b: &[F; 3]) -> F {
@@ -116,6 +130,10 @@ pub fn palette(img: &RgbImage, k: usize, dist: Distance) -> Vec<[u8; 3]> {
                 cols = finer;
             }
         }
+    }
+
+    if dist == Distance::Balanced {
+        return balanced::palette(&cols, k);
     }
 
     let n = cols.len();
@@ -228,7 +246,7 @@ mod tests {
 
     #[test]
     fn at_most_k_colours_all_from_the_input() {
-        for dist in [Distance::Rgb, Distance::Oklab] {
+        for dist in [Distance::Rgb, Distance::Oklab, Distance::Balanced] {
             for k in [1, 2, 8, 16] {
                 let src = noisy();
                 let before = colours(&src);
@@ -257,10 +275,16 @@ mod tests {
             let i = y * 256 + x;
             image::Rgb([(i % 64) as u8, (i / 64 % 64) as u8, (i / 4096) as u8])
         });
-        let t = std::time::Instant::now();
-        let pal = palette(&img, 256, Distance::Rgb);
-        assert_eq!(pal.len(), 256);
-        assert!(t.elapsed().as_secs() < 30, "took {:?}", t.elapsed());
+        for dist in [Distance::Rgb, Distance::Balanced] {
+            let t = std::time::Instant::now();
+            let pal = palette(&img, 256, dist);
+            assert_eq!(pal.len(), 256, "{dist:?}");
+            assert!(
+                t.elapsed().as_secs() < 30,
+                "{dist:?} took {:?}",
+                t.elapsed()
+            );
+        }
     }
 
     #[test]
@@ -272,12 +296,74 @@ mod tests {
     }
 
     #[test]
+    fn balanced_representative_comes_from_the_heaviest_bucket() {
+        // 120 and 121 share a bucket (12 px together); 128 alone has 10 px. The cluster keeps the
+        // heaviest bucket's own colour, 120, not the most common exact colour, 128 (user choice,
+        // 2026-11-21: on the showcase this gave lower error than exact counts, M1).
+        let px = [[120u8; 3]; 6]
+            .into_iter()
+            .chain([[121; 3]; 6])
+            .chain([[128; 3]; 10]);
+        let v: Vec<[u8; 3]> = px.collect();
+        let img = RgbImage::from_fn(22, 1, |x, _| image::Rgb(v[x as usize]));
+        assert_eq!(palette(&img, 1, Distance::Balanced), vec![[120; 3]]);
+    }
+
+    #[test]
     fn deterministic() {
-        let (mut a, mut b) = (noisy(), noisy());
+        for dist in [Distance::Oklab, Distance::Balanced] {
+            let (mut a, mut b) = (noisy(), noisy());
+            assert_eq!(decimate(&mut a, 6, dist), decimate(&mut b, 6, dist));
+            assert_eq!(a, b);
+        }
+    }
+
+    /// Two muted hues 11 apart in a/b, each a ramp of 4 shades 12 apart in L (400 px each), and
+    /// a small vivid accent (80 px). Returns the image and each ramp's and the accent's colours.
+    fn ramps_and_accent() -> (RgbImage, [HashSet<[u8; 3]>; 3]) {
+        let srgb = |l: F, a: F, b: F| {
+            crate::color::oklab_to_srgb([l / 100.0, a / 100.0, b / 100.0])
+                .map(|v| (v.clamp(0.0, 1.0) * 255.0).round() as u8)
+        };
+        let ramp = |a: F, b: F| [40.0, 52.0, 64.0, 76.0].map(|l| srgb(l, a, b));
+        let (ra, rb, acc) = (ramp(2.0, 6.0), ramp(-7.0, 0.0), srgb(55.0, 25.0, -15.0));
+        let mut px: Vec<[u8; 3]> = Vec::new();
+        for c in ra.iter().chain(&rb) {
+            px.extend(std::iter::repeat_n(*c, 400));
+        }
+        px.extend(std::iter::repeat_n(acc, 80));
+        let img = RgbImage::from_fn(82, 40, |x, y| image::Rgb(px[(y * 82 + x) as usize]));
+        let set = |c: &[[u8; 3]]| c.iter().copied().collect::<HashSet<_>>();
+        (img, [set(&ra), set(&rb), set(&[acc])])
+    }
+
+    /// Which groups (ramp A, ramp B, accent) the palette has a colour from.
+    fn groups(pal: &[[u8; 3]], g: &[HashSet<[u8; 3]>; 3]) -> [bool; 3] {
+        g.each_ref().map(|s| pal.iter().any(|c| s.contains(c)))
+    }
+
+    #[test]
+    fn balanced_keeps_both_hues_before_any_shade() {
+        let (img, g) = ramps_and_accent();
+        // Plain Oklab merges the two hues first (11 apart, closer than a shade step).
         assert_eq!(
-            decimate(&mut a, 6, Distance::Oklab),
-            decimate(&mut b, 6, Distance::Oklab)
+            groups(&palette(&img, 3, Distance::Oklab), &g),
+            [true, false, true]
         );
-        assert_eq!(a, b);
+        assert_eq!(
+            groups(&palette(&img, 2, Distance::Balanced), &g),
+            [true, true, false]
+        );
+    }
+
+    #[test]
+    fn balanced_accent_ranks_above_shades() {
+        let (img, g) = ramps_and_accent();
+        let pal = palette(&img, 3, Distance::Balanced);
+        assert_eq!(groups(&pal, &g), [true, true, true], "{pal:?}");
+        // The fourth slot goes to a shade.
+        let pal = palette(&img, 4, Distance::Balanced);
+        assert_eq!(pal.len(), 4);
+        assert_eq!(groups(&pal, &g), [true, true, true]);
     }
 }
