@@ -5,9 +5,11 @@
 //! Because a merge keeps a real colour instead of averaging two, vivid colours that cover few
 //! pixels are not pulled towards grey the way k-means and PIA's annealed palette pull them.
 //!
-//! Large inputs (unquantised PixelOE output has thousands of colours) are first grouped into
-//! buckets of nearby colours (top bits per channel). Each bucket is represented by its most
-//! common exact colour, so every palette colour is one of the input's colours.
+//! Colours are first grouped into buckets of nearby colours (top bits per channel), which pools
+//! the weight of noisy near-duplicates (a grainy gradient is thousands of colours with a few
+//! pixels each). Each bucket is represented by its most common exact colour, so every palette
+//! colour is one of the input's colours. If the buckets number `k` or fewer, the merge runs on
+//! the exact colours when there are at most `MAX_BUCKETS` of them, else on finer buckets.
 
 use crate::color::srgb_to_oklab;
 use crate::F;
@@ -99,8 +101,21 @@ pub fn palette(img: &RgbImage, k: usize, dist: Distance) -> Vec<[u8; 3]> {
         cols = buckets(&hist, bits);
     }
     if cols.len() <= k {
-        // Bucketing alone got below k: use the exact colours instead, so k is filled.
-        cols = hist;
+        // Bucketing alone got below k. Use the exact colours if the merge can afford them;
+        // otherwise refine the buckets while they stay within MAX_BUCKETS. Each extra bit splits
+        // a bucket into at most 8, so this gets above k for any k <= MAX_BUCKETS / 8.
+        if hist.len() <= MAX_BUCKETS {
+            cols = hist;
+        } else {
+            while cols.len() <= k && bits < 7 {
+                let finer = buckets(&hist, bits + 1);
+                if finer.len() > MAX_BUCKETS {
+                    break;
+                }
+                bits += 1;
+                cols = finer;
+            }
+        }
     }
 
     let n = cols.len();
@@ -233,6 +248,19 @@ mod tests {
         let mut img = noisy();
         let pal = decimate(&mut img, 8, Distance::Rgb);
         assert!(pal.contains(&[230, 20, 30]), "{pal:?}");
+    }
+
+    #[test]
+    fn many_colours_in_few_buckets_stay_bounded() {
+        // 65536 exact colours in 128 five-bit buckets: the merge must not get all 65536.
+        let img = RgbImage::from_fn(256, 256, |x, y| {
+            let i = y * 256 + x;
+            image::Rgb([(i % 64) as u8, (i / 64 % 64) as u8, (i / 4096) as u8])
+        });
+        let t = std::time::Instant::now();
+        let pal = palette(&img, 256, Distance::Rgb);
+        assert_eq!(pal.len(), 256);
+        assert!(t.elapsed().as_secs() < 30, "took {:?}", t.elapsed());
     }
 
     #[test]

@@ -1,7 +1,7 @@
 //! K1 comparison: native palette vs decimation with RGB and Oklab distance, both methods.
 //!
 //! `cargo run --release --example decimate_compare SRC_DIR OUT_DIR [SIZE]`
-//! Writes `<image>_<method>_k<k>_<variant>.png` and prints one line per run with its time.
+//! Writes `<image file name>_<method>_k<k>_<variant>.png` and prints one line per run with its time.
 //! Light at 128 (a few seconds per image); larger sizes belong on a remote machine (A5).
 use pixplusplus::decimate::Distance;
 use pixplusplus::job::{output_size, pia_image, pixeloe_defaults, pixeloe_image, Importance};
@@ -33,7 +33,8 @@ fn main() {
     ];
     let adjust = ColorAdjust::default();
     for path in imgs {
-        let stem = path.file_stem().unwrap().to_string_lossy().into_owned();
+        // The full file name, so scene.jpg and scene.png don't overwrite each other.
+        let stem = path.file_name().unwrap().to_string_lossy().into_owned();
         let img = image::open(&path).unwrap().to_rgb8();
         let (ow, oh) = output_size(img.width(), img.height(), size, None, None);
         for k in [8, 16] {
