@@ -502,6 +502,11 @@ mod tests {
                     cents[i].iter().any(|&c| close(c, px(&want, i))),
                     "tie {i}: reference is not a centroid"
                 );
+                // G6: Pix++ gives the tie to the first centroid.
+                assert!(
+                    close(px(&got, i), cents[i][0]),
+                    "tie {i}: not the first centroid"
+                );
             } else {
                 assert!(close(px(&got, i), px(&want, i)), "pixel {i} differs");
             }

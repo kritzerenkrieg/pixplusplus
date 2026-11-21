@@ -31,7 +31,7 @@ struct Cli {
     #[arg(long, value_enum, default_value_t = MethodArg::Pia)]
     method: MethodArg,
     /// Palette size (hard limit). PIA default 16; PixelOE quantises only when given (G8).
-    #[arg(short = 'k', long)]
+    #[arg(short = 'k', long, value_parser = parse_colors)]
     colors: Option<usize>,
     /// How the -k palette is made (K1, K5). `native`: the method's own (PIA's solver, PixelOE's
     /// k-means). `decimate-oklab` / `decimate-rgb`: merge the closest colours, measured in
@@ -195,6 +195,14 @@ fn parse_factor(s: &str) -> Result<F, String> {
 }
 
 /// PixelOE has soft circle kernels for thickness 1..=6 only (`morph::kernel`).
+/// `-k` must be at least 1: both palettes and decimation need a colour to map to.
+fn parse_colors(s: &str) -> Result<usize, String> {
+    match s.parse::<usize>() {
+        Ok(k) if k >= 1 => Ok(k),
+        _ => Err(format!("must be a whole number of at least 1, got {s}")),
+    }
+}
+
 fn parse_thickness(s: &str) -> Result<usize, String> {
     match s.parse::<usize>() {
         Ok(t) if t <= 6 => Ok(t),
@@ -466,6 +474,15 @@ fn run_pixeloe(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn zero_colours_is_rejected() {
+        assert!(Cli::try_parse_from(["pixplusplus", "in.png", "-o", "o.png", "-k", "0"]).is_err());
+        let ok = Cli::try_parse_from(["pixplusplus", "in.png", "-o", "o.png", "-k", "1"]).unwrap();
+        assert_eq!(ok.colors, Some(1));
+        let none = Cli::try_parse_from(["pixplusplus", "in.png", "-o", "o.png"]).unwrap();
+        assert_eq!(none.colors, None);
+    }
 
     /// Raw PixelOE input (--input-factor 0) with --width/--height: the pixel size comes from
     /// the resolved grid, not the default --size 128, which gave a 64x32 output here.

@@ -115,7 +115,7 @@ Notes:
 ## Parity
 
 PIA has a compat mode (`--pyxeled-compat`) that reproduces
-[Pyxeled](https://github.com/garretthoffman/pyxeled); PixelOE is checked against upstream.
+[Pyxeled](https://github.com/gskaggs/Pyxeled); PixelOE is checked against upstream.
 Both scripts use the Python venv in `bench/.venv`:
 
 ```sh

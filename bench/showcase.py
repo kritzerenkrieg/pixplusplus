@@ -85,14 +85,23 @@ figure{{margin:0}}.miss{{color:var(--mut);text-align:center}}
 .sz{{writing-mode:vertical-rl;transform:rotate(180deg);text-align:center;color:var(--mut)}}
 #zoom{{position:fixed;inset:0;background:rgba(0,0,0,.85);display:none;align-items:center;justify-content:center;z-index:9;cursor:zoom-out}}
 #zoom img{{max-width:96vw;max-height:96vh;image-rendering:pixelated}}
+.zb{{all:unset;display:block;width:100%;cursor:zoom-in}}.zb:focus-visible,#zoom:focus-visible{{outline:2px solid #6af;outline-offset:2px}}
 </style></head><body><main>
-<h1>Pix++ showcase</h1><div class="mut">K = {a.k}, output width {' / '.join(map(str, a.sizes))} px. Click any tile to enlarge.</div>
+<h1>Pix++ showcase</h1><div class="mut">K = {a.k}, output width {' / '.join(map(str, a.sizes))} px. Click a tile (or Tab to it and press Enter) to enlarge; Esc closes.</div>
 {hdr}{''.join(rows)}
-</main><div id="zoom"><img alt=""></div>
+</main><div id="zoom" role="dialog" aria-modal="true" aria-label="Enlarged image" tabindex="-1"><img alt=""></div>
 <script>
-const z=document.getElementById('zoom'),zi=z.querySelector('img');
-document.querySelectorAll('main img').forEach(i=>i.onclick=()=>{{zi.src=i.src;z.style.display='flex'}});
-z.onclick=()=>z.style.display='none';
+const z=document.getElementById('zoom'),zi=z.querySelector('img');let from=null;
+// Each tile sits in a native button, so Tab reaches it and Enter or Space opens it.
+document.querySelectorAll('main img').forEach(i=>{{
+  const b=document.createElement('button');b.className='zb';b.type='button';
+  b.setAttribute('aria-label','Enlarge '+(i.alt||'image'));
+  i.replaceWith(b);b.append(i);
+  b.onclick=()=>{{from=b;zi.src=i.src;zi.alt=i.alt;z.style.display='flex';z.focus()}};
+}});
+const close=()=>{{z.style.display='none';if(from)from.focus()}};
+z.onclick=close;
+z.onkeydown=e=>{{if(['Escape','Enter',' '].includes(e.key)){{e.preventDefault();close()}}}};
 </script></body></html>"""
 out = Path(a.out)
 out.parent.mkdir(parents=True, exist_ok=True)
