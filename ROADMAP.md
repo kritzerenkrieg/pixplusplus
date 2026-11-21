@@ -106,6 +106,12 @@ Goal: outputs keep the source's vivid colours, and saturation and contrast are a
 
 - [x] Settings profiles (L1): save, save as, load and delete named profiles in the GUI. Done when: unit tests round-trip every setting through a profile file, reject unsafe names, and load a profile with missing fields using the defaults; `cargo clippy --features gui` and `cargo fmt --check` are clean; the default build is unchanged. (2026-11-20: `src/gui/profiles.rs`, 4 tests: round trip of every setting, save replaces, delete, missing fields, unsafe names, newer versions; 33 library + 10 GUI tests pass; clippy and fmt clean; default build has no GUI crates and its outputs are byte-identical.)
 
+## Phase M: Balanced palette (K6)
+
+Goal: the default palette gives each main hue a colour first, then distinct accents and shades by priority.
+
+- [x] Balanced palette (K6): `--palette balanced`, the default for both methods (compat stays native), and in the GUI. Done when: unit tests show both hues kept before any shade and an accent ranking above shades; `--palette native`, `--pyxeled-compat` and unquantised PixelOE outputs are byte-identical to before; GUI-vs-CLI tests pass for the new default; a native / decimate-oklab / balanced comparison on the showcase images is recorded in K6; `cargo test --features gui`, clippy (1.100, `-D warnings`, with and without `gui`) and `cargo fmt --check` pass. (2026-11-21: `src/decimate/balanced.rs`; 2 new decimate tests plus Balanced in the invariant, stress and determinism tests; profile version 3 with a migration test; GUI fixtures `pia_s48_k8_balanced.png`, `pixeloe_s48_k8_balanced.png`; native smoke, compat, PixelOE with and without `-k` byte-identical; comparison in K6.)
+
 ## Follow-ups from Q2 and Q4
 
 - [x] Q4: PIA uses `--importance auto` by default; `--importance none` for plain PIA; compat always without. Done when: the default output equals the old `--importance auto` output, `--importance none` equals the old default, compat is unchanged. (2026-11-21: all three byte-identical.)

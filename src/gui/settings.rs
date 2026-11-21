@@ -48,10 +48,12 @@ impl Method {
     }
 }
 
-/// How the limited palette is made (K1, K5): the method's own, or decimation in Oklab or RGB.
+/// How the limited palette is made (K1, K5, K6): balanced (the default), the method's own, or
+/// decimation in Oklab or RGB.
 #[derive(Clone, Copy, PartialEq, Eq, Debug, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum PaletteChoice {
+    Balanced,
     Native,
     DecimateOklab,
     /// `decimate` is what profiles from the first K1 build wrote; it meant RGB.
@@ -107,7 +109,7 @@ impl Default for Settings {
             oe_saturation: 1.0,
             contrast: 1.0,
             pre: Adjust::default(),
-            palette: PaletteChoice::Native,
+            palette: PaletteChoice::Balanced,
         }
     }
 }
@@ -138,9 +140,10 @@ fn oe_over_gui_defaults<'de, D: serde::Deserializer<'de>>(d: D) -> Result<Option
 }
 
 impl Settings {
-    /// `--palette decimate-oklab|decimate-rgb` (K5); `None` = the method's own palette.
+    /// `--palette balanced|decimate-oklab|decimate-rgb` (K5, K6); `None` = the method's own.
     fn decimate(&self) -> Option<Distance> {
         match self.palette {
+            PaletteChoice::Balanced => Some(Distance::Balanced),
             PaletteChoice::Native => None,
             PaletteChoice::DecimateOklab => Some(Distance::Oklab),
             PaletteChoice::DecimateRgb => Some(Distance::Rgb),
@@ -252,9 +255,10 @@ mod tests {
 
     #[test]
     fn pia_matches_cli() {
-        // -s 64 -k 8 --importance none
+        // -s 64 -k 8 --importance none --palette native
         let s = Settings {
             importance: false,
+            palette: PaletteChoice::Native,
             size: 64,
             colors: 8,
             ..Settings::default()
@@ -264,8 +268,9 @@ mod tests {
 
     #[test]
     fn pia_importance_auto_matches_cli() {
-        // -s 48 -k 8 (importance auto: the PIA default, J7, Q4)
+        // -s 48 -k 8 --palette native (importance auto: the PIA default, J7, Q4)
         let s = Settings {
+            palette: PaletteChoice::Native,
             size: 48,
             colors: 8,
             ..Settings::default()
@@ -275,8 +280,10 @@ mod tests {
 
     #[test]
     fn pixeloe_matches_cli() {
-        // -s 48 -k 8 --method pixeloe (the CLI dithers by default; the GUI does not, K2)
+        // -s 48 -k 8 --method pixeloe --palette native (the CLI dithers by default; the GUI
+        // does not, K2)
         let mut s = Settings {
+            palette: PaletteChoice::Native,
             method: Method::Pixeloe,
             size: 48,
             colors: 8,
@@ -289,9 +296,10 @@ mod tests {
 
     #[test]
     fn pia_colour_controls_match_cli() {
-        // -s 48 -k 8 --importance none --saturation 1.4 --contrast 1.2 --pre-saturation 1.3
-        //   --pre-contrast 0.9
+        // -s 48 -k 8 --importance none --palette native --saturation 1.4 --contrast 1.2
+        //   --pre-saturation 1.3 --pre-contrast 0.9
         let s = Settings {
+            palette: PaletteChoice::Native,
             size: 48,
             colors: 8,
             importance: false,
@@ -308,9 +316,10 @@ mod tests {
 
     #[test]
     fn pixeloe_colour_controls_match_cli() {
-        // -s 48 -k 8 --method pixeloe --oe-dither none --saturation 1.5 --contrast 1.2
-        //   --pre-saturation 1.3 --pre-contrast 1.1
+        // -s 48 -k 8 --method pixeloe --palette native --oe-dither none --saturation 1.5
+        //   --contrast 1.2 --pre-saturation 1.3 --pre-contrast 1.1
         let s = Settings {
+            palette: PaletteChoice::Native,
             method: Method::Pixeloe,
             size: 48,
             colors: 8,
@@ -367,6 +376,27 @@ mod tests {
             };
             check(s, file);
         }
+    }
+
+    #[test]
+    fn balanced_default_matches_cli() {
+        // The defaults on both sides (K6): -s 48 -k 8, and -s 48 -k 8 --method pixeloe (the
+        // balanced palette maps without dither, so the CLI's ordered dither doesn't apply).
+        let s = Settings {
+            size: 48,
+            colors: 8,
+            ..Settings::default()
+        };
+        assert_eq!(s.palette, PaletteChoice::Balanced);
+        check(s, "pia_s48_k8_balanced.png");
+        let s = Settings {
+            method: Method::Pixeloe,
+            size: 48,
+            colors: 8,
+            oe_quantise: true,
+            ..Settings::default()
+        };
+        check(s, "pixeloe_s48_k8_balanced.png");
     }
 
     #[test]

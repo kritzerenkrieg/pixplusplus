@@ -583,10 +583,11 @@ impl App {
 
                     let limited = s.method != Method::Pixeloe || s.oe_quantise;
                     ui.label("Palette").on_hover_text(
-                        "--palette. Native: the method's own palette. Decimate: merge the \
-                         closest colours, keeping the more common one, with no dither; keeps \
-                         small vivid colours. Oklab: closeness as the eye sees it (cleaner). \
-                         RGB: most vivid, can leave stray bright pixels.",
+                        "--palette. Balanced: each main hue gets a colour first, then distinct \
+                         accents and shades by priority, with no dither. Native: the method's \
+                         own palette. Decimate: merge the closest colours, keeping the more \
+                         common one, with no dither. Oklab: closeness as the eye sees it \
+                         (cleaner). RGB: most vivid, can leave stray bright pixels.",
                     );
                     ui.add_enabled_ui(limited, |ui| {
                         combo(
@@ -594,6 +595,7 @@ impl App {
                             "palette",
                             &mut s.palette,
                             &[
+                                (PaletteChoice::Balanced, "Balanced (main + accents)"),
                                 (PaletteChoice::Native, "Native"),
                                 (PaletteChoice::DecimateOklab, "Decimate (Oklab)"),
                                 (PaletteChoice::DecimateRgb, "Decimate (RGB)"),

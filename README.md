@@ -90,10 +90,14 @@ Colour controls, for both methods (1 = unchanged):
 #   --pre-contrast 1.2     so the palette itself picks more vivid or contrasty colours
 ```
 
-Palette (`--palette`, K1, K5):
+Palette (`--palette`, K1, K5, K6):
 
 ```sh
-#   --palette native           the method's own palette (default): PIA's solver, PixelOE's k-means
+#   --palette balanced         the default: each main hue gets a colour first, then distinct accents
+#                              and shades by priority, with no dither. Keeps a small red or a
+#                              second hue that plain merging loses. PixelOE: only with -k.
+#                              PIA: about 4x slower than native. --pyxeled-compat uses native.
+#   --palette native           the method's own palette: PIA's solver, PixelOE's k-means
 #   --palette decimate-oklab   merge the closest colours, keeping the more common one, then map
 #   --palette decimate-rgb     each pixel to its nearest colour with no dither; keeps small vivid
 #                              colours that averaging would grey out. Oklab measures closeness as

@@ -23,7 +23,7 @@ This repository is Pix++: the PIA solver, the CLI, Pyxeled parity and the PixelO
 - Test (single): `cargo test <name>`, e.g. `cargo test respects_hard_palette_limit`
 - Lint: `cargo clippy` (must stay warning-free). Format: `cargo fmt --check` must pass (E4).
 - Typecheck: `cargo check`
-- Smoke run (about 1 s; PIA with the automatic importance map, the default since Q4): `./target/release/pixplusplus bench/images/hunter_hunting.jpg -o target/smoke.png -s 128 -k 16 --stats target/smoke.json`
+- Smoke run (about 4 s; PIA with the automatic importance map (Q4) and the balanced palette (K6), the defaults; add `--palette native` for the 1 s run): `./target/release/pixplusplus bench/images/hunter_hunting.jpg -o target/smoke.png -s 128 -k 16 --stats target/smoke.json`
 - Parity check: `bench/.venv/bin/python bench/parity.py <source> <pyxeled_out> <pixplusplus_out>...` (see `docs/PORTING.md`)
 
 ## Working loop

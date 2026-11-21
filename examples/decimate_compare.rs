@@ -1,4 +1,5 @@
-//! K1 comparison: native palette vs decimation with RGB and Oklab distance, both methods.
+//! K1, K6 comparison: native palette vs decimation with RGB and Oklab distance and the balanced
+//! palette, both methods.
 //!
 //! `cargo run --release --example decimate_compare SRC_DIR OUT_DIR [SIZE]`
 //! Writes `<image file name>_<method>_k<k>_<variant>.png` and prints one line per run with its time.
@@ -30,6 +31,7 @@ fn main() {
         ("native", None),
         ("rgb", Some(Distance::Rgb)),
         ("oklab", Some(Distance::Oklab)),
+        ("balanced", Some(Distance::Balanced)),
     ];
     let adjust = ColorAdjust::default();
     for path in imgs {
