@@ -41,6 +41,10 @@ def out_size(w, h, s):
 
 def cmd_prep(a):
     work = Path(a.work)
+    # The cleanup below deletes WORK/in/*.png, which would be the sources themselves if SRC_DIR
+    # is WORK/in. (Both listings are non-recursive, so nested folders can't lose files.)
+    if (work / "in").resolve() == Path(a.src).resolve():
+        sys.exit(f"SRC_DIR must not be {work / 'in'}: prep clears that folder")
     (work / "in").mkdir(parents=True, exist_ok=True)
     # Start the input set afresh so sizes or sources from an earlier prep aren't run again.
     # The torch and pixplusplus result folders are left alone (they're costly to remake).
