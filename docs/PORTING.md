@@ -74,9 +74,6 @@ via kornia 0.9.2). Each stage is checked against dumps from `bench/pixeloe_ref.p
    of the pixel size, upstream still adds a cell to both (`pixelize.py`, `out_h += 1; out_w += 1`).
    Pix++ keeps this for parity (Q3). The CLI and GUI resize PixelOE input to an exact multiple
    (G7), so it only happens with `--input-factor 0`.
-5. **K-means sums in f64 (2026-11-21).** torch's `sum` is pairwise, so it stays accurate over
-   many pixels; a naive f32 running sum drifts (a constant 204/255 image at 512×512 gave a
-   203 centroid). Pix++ accumulates the cluster sums in f64, which is closer to upstream.
 
 ### PixelOE parity (G3, G5), 2026-11-18
 `bench/pixeloe_parity.py` on the 6 showcase images, default options, pixel size 4, same
