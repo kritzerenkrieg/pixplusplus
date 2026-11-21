@@ -3,14 +3,14 @@
 Pix++ (`pixplusplus`) is a procedural pixelization program: concept art in, pixel art out.
 It comes as a command-line tool and a desktop GUI, written in Rust.
 
-Three methods:
+Two methods:
 
-- **PIA** (default): Pixelated Image Abstraction (Gerstner et al., NPAR 2012 / C&G 2013).
-  Superpixels are the output pixels; segmentation and palette are solved jointly with
-  mass-constrained deterministic annealing in Oklab.
-- **PIA + importance map**: brighter areas of a grayscale map get more palette mass. Bring your
-  own map or let Pix++ compute spectral-residual saliency (`--importance auto`).
-- **PixelOE**: a port of [PixelOE](https://github.com/KohakuBlueleaf/PixelOE)'s torch backend
+- **Pixelated Image Abstraction (PIA)**, the CLI default (Gerstner et al., NPAR 2012 /
+  C&G 2013). Superpixels are the output pixels; segmentation and palette are solved jointly
+  with mass-constrained deterministic annealing in Oklab. Optional **importance map**: brighter
+  areas get more palette mass. Pix++ computes one with spectral-residual saliency
+  (`--importance auto`, on by default in the GUI), or the CLI takes your own grayscale map.
+- **Pixelization on Outline Expansion (PixelOE)**: a port of [PixelOE](https://github.com/KohakuBlueleaf/PixelOE)'s torch backend
   (outline expansion, contrast-aware downscale, optional k-means palette and dithering).
   It matches upstream within 0.001 mean ΔE and is faster than torch on CPU.
 
@@ -32,9 +32,14 @@ and targets Linux, Windows and macOS.
 ./target/release/pixplusplus-gui
 ```
 
-Open an image, pick the method, set the size, colour count, saturation and contrast (before and
-after the palette) and PixelOE options, run, preview, save. PixelOE defaults to no dithering in
-the GUI. Jobs run on a worker thread, so the window stays responsive.
+Open an image, pick a method, set the size, colours and palette, adjust colour, press Run, save.
+
+- **Methods:** *Pixelated Image Abstraction* (PIA) and *Pixelization on Outline Expansion*
+  (PixelOE). Under PIA, the automatic importance map is on by default; untick it for plain PIA.
+  PixelOE has no dithering by default in the GUI, and its detailed options are folded away.
+- **Keys:** Ctrl+O open, Ctrl+Enter run, Ctrl+S save PNG. Hold Space on the result to peek at the
+  source. A notice shows when the settings changed since the result on screen.
+- Jobs run on a worker thread, so the window stays responsive.
 
 Settings can be kept as named profiles (Save, Save as…, Load, Delete at the top of the panel).
 Each profile is a JSON file in `~/.config/pixplusplus/profiles` on Linux (`$XDG_CONFIG_HOME`

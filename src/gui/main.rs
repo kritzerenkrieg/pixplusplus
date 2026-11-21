@@ -13,7 +13,8 @@ use pixplusplus::pixeloe::color::Dither;
 use pixplusplus::pixeloe::downscale::Interp;
 use pixplusplus::pixeloe::outline::{Mapping, Normalize};
 use pixplusplus::pixeloe::pipeline::{Mode, Quant, Sharpen};
-use settings::{ImportanceSource, Method, PaletteChoice, RunOutput, Settings};
+use pixplusplus::F;
+use settings::{Method, PaletteChoice, RunOutput, Settings};
 use std::path::{Path, PathBuf};
 use std::sync::mpsc::{channel, Receiver};
 use std::sync::Arc;
@@ -52,6 +53,9 @@ struct Source {
 struct Result_ {
     image: RgbImage,
     texture: Option<TextureHandle>,
+    /// The settings that made it, to flag a result that no longer matches the panel.
+    settings: Settings,
+    colours: usize,
 }
 
 #[derive(PartialEq, Eq, Clone, Copy)]
@@ -118,6 +122,8 @@ struct App {
     view: View,
     status: Status,
     job: Option<Receiver<Result<RunOutput, String>>>,
+    /// The settings of the job in flight.
+    job_settings: Option<Settings>,
     save_scale: u32,
 }
 
@@ -131,6 +137,7 @@ impl Default for App {
             view: View::Source,
             status: Status::Idle,
             job: None,
+            job_settings: None,
             save_scale: 1,
         }
     }
@@ -184,6 +191,7 @@ impl App {
             ctx.request_repaint();
         });
         self.job = Some(rx);
+        self.job_settings = Some(self.settings.clone());
         self.status = Status::Idle;
     }
 
@@ -191,15 +199,24 @@ impl App {
         let Some(rx) = &self.job else { return };
         let Ok(r) = rx.try_recv() else { return };
         self.job = None;
+        let settings = self.job_settings.take().unwrap_or_default();
         match r {
             Ok(out) => {
                 self.status = match out.warning {
                     Some(w) => Status::Warning(format!("{}  ·  {w}", out.summary)),
                     None => Status::Info(out.summary),
                 };
+                let colours = out
+                    .image
+                    .pixels()
+                    .map(|p| p.0)
+                    .collect::<std::collections::HashSet<_>>()
+                    .len();
                 self.result = Some(Result_ {
                     image: out.image,
                     texture: None,
+                    settings,
+                    colours,
                 });
                 self.view = View::Result;
             }
@@ -303,7 +320,6 @@ impl App {
 
     /// The Profile section: pick, load, save, save as, delete (L1).
     fn profile_ui(&mut self, ui: &mut egui::Ui) {
-        ui.heading("Profile");
         let Some(dir) = self.profiles.dir.clone() else {
             ui.label(RichText::new("No config folder found; profiles are off.").weak());
             return;
@@ -313,8 +329,8 @@ impl App {
             Some((n, _)) => format!("{n} *"),
             None => "Unsaved settings".into(),
         };
-        ui.label(RichText::new(current).strong())
-            .on_hover_text("* = changed since the profile was loaded or saved.");
+        ui.label(RichText::new(current).weak())
+            .on_hover_text("The profile in use. * = changed since it was loaded or saved.");
 
         let shown = self
             .profiles
@@ -323,7 +339,7 @@ impl App {
             .unwrap_or_else(|| "Choose a profile…".into());
         ui.horizontal(|ui| {
             ComboBox::from_id_salt("profiles")
-                .width(150.0)
+                .width(ui.available_width() - 60.0)
                 .selected_text(shown)
                 .show_ui(ui, |ui| {
                     if self.profiles.names.is_empty() {
@@ -482,150 +498,159 @@ impl App {
 
     fn settings_ui(&mut self, ui: &mut egui::Ui) {
         let s = &mut self.settings;
-        ui.heading("Method");
-        for m in Method::ALL {
-            ui.radio_value(&mut s.method, m, m.label());
-        }
-        ui.separator();
-
-        egui::Grid::new("common")
-            .num_columns(2)
-            .spacing([8.0, 6.0])
-            .show(ui, |ui| {
-                ui.label("Size (long side)")
-                    .on_hover_text("-s: output long side in pixels, aspect kept.");
-                ui.add(
-                    egui::DragValue::new(&mut s.size)
-                        .range(4..=1024)
-                        .suffix(" px"),
-                );
-                ui.end_row();
-                if s.method == Method::Pixeloe {
-                    ui.checkbox(&mut s.oe_quantise, "Limit colours")
-                        .on_hover_text("-k: quantise with k-means (G8). Off: unquantised.");
-                    ui.add_enabled(
-                        s.oe_quantise,
-                        egui::DragValue::new(&mut s.colors).range(2..=256),
-                    );
-                } else {
-                    ui.label("Colours")
-                        .on_hover_text("-k: palette size, a hard limit (B4).");
-                    ui.add(egui::DragValue::new(&mut s.colors).range(2..=256));
-                }
-                ui.end_row();
-
-                let limited = s.method != Method::Pixeloe || s.oe_quantise;
-                ui.label("Palette").on_hover_text(
-                    "--palette. Native: the method's own palette (PIA's solver, PixelOE's \
-                     k-means). Decimate: merge the closest colours, keeping the more common \
-                     one, then map each pixel to its nearest colour with no dither; keeps \
-                     small vivid colours that averaging would grey out. Oklab measures \
-                     closeness as the eye sees it (cleaner); RGB keeps the most vivid \
-                     colours but can leave stray bright pixels.",
-                );
-                ui.add_enabled_ui(limited, |ui| {
-                    combo(
-                        ui,
-                        "palette",
-                        &mut s.palette,
-                        &[
-                            (PaletteChoice::Native, "native"),
-                            (PaletteChoice::DecimateOklab, "decimate (Oklab)"),
-                            (PaletteChoice::DecimateRgb, "decimate (RGB)"),
-                        ],
-                    );
+        section(ui, "Method", true, |ui| {
+            for m in Method::ALL {
+                ui.radio_value(&mut s.method, m, RichText::new(m.label()).strong())
+                    .on_hover_text(format!("--method {}", m.short().to_lowercase()));
+                ui.indent(m.short(), |ui| {
+                    ui.label(RichText::new(m.blurb()).weak());
                 });
-                ui.end_row();
-            });
-
-        if s.method == Method::PiaImportance {
-            ui.separator();
-            ui.heading("Importance map");
-            let auto = s.importance == ImportanceSource::Auto;
-            if ui.radio(auto, "Automatic (saliency)").clicked() {
-                s.importance = ImportanceSource::Auto;
             }
-            ui.horizontal(|ui| {
-                let file = match &s.importance {
-                    ImportanceSource::File(p) => p
-                        .file_name()
-                        .map(|n| n.to_string_lossy().into_owned())
-                        .unwrap_or_default(),
-                    ImportanceSource::Auto => "none".into(),
-                };
-                let _ = ui.radio(!auto, "File:");
-                if ui
-                    .button(file)
-                    .on_hover_text("Grayscale image, white = more palette mass.")
-                    .clicked()
-                {
-                    if let Some(p) = rfd::FileDialog::new()
-                        .add_filter("Images", &IMAGE_EXTS)
-                        .pick_file()
-                    {
-                        s.importance = ImportanceSource::File(p);
-                    }
-                }
-            });
-        }
+        });
 
-        ui.separator();
-        colour_ui(ui, s);
+        section(ui, "Output", true, |ui| {
+            egui::Grid::new("output")
+                .num_columns(2)
+                .spacing([10.0, 6.0])
+                .show(ui, |ui| {
+                    ui.label("Size")
+                        .on_hover_text("-s: longest side of the result, in pixels.");
+                    ui.add(
+                        egui::DragValue::new(&mut s.size)
+                            .range(4..=1024)
+                            .suffix(" px"),
+                    );
+                    ui.end_row();
+
+                    if s.method == Method::Pixeloe {
+                        ui.checkbox(&mut s.oe_quantise, "Colours").on_hover_text(
+                            "-k: limit the palette. Off: keep every colour PixelOE produces.",
+                        );
+                        ui.add_enabled(
+                            s.oe_quantise,
+                            egui::DragValue::new(&mut s.colors).range(2..=256),
+                        )
+                        .on_disabled_hover_text("Tick Colours to limit the palette.");
+                    } else {
+                        ui.label("Colours")
+                            .on_hover_text("-k: at most this many colours.");
+                        ui.add(egui::DragValue::new(&mut s.colors).range(2..=256));
+                    }
+                    ui.end_row();
+
+                    let limited = s.method != Method::Pixeloe || s.oe_quantise;
+                    ui.label("Palette").on_hover_text(
+                        "--palette. Native: the method's own palette. Decimate: merge the \
+                         closest colours, keeping the more common one, with no dither; keeps \
+                         small vivid colours. Oklab: closeness as the eye sees it (cleaner). \
+                         RGB: most vivid, can leave stray bright pixels.",
+                    );
+                    ui.add_enabled_ui(limited, |ui| {
+                        combo(
+                            ui,
+                            "palette",
+                            &mut s.palette,
+                            &[
+                                (PaletteChoice::Native, "Native"),
+                                (PaletteChoice::DecimateOklab, "Decimate (Oklab)"),
+                                (PaletteChoice::DecimateRgb, "Decimate (RGB)"),
+                            ],
+                        );
+                    })
+                    .response
+                    .on_disabled_hover_text("Limit the colours first.");
+                    ui.end_row();
+                });
+            if s.method == Method::Pia {
+                ui.add_space(2.0);
+                ui.checkbox(&mut s.importance, "Importance map")
+                    .on_hover_text(
+                        "--importance auto: finds the eye-catching parts of the image \
+                         (spectral-residual saliency) and gives them more of the palette. \
+                         Untick for plain PIA.",
+                    );
+            }
+        });
+
+        section(ui, "Colour", true, |ui| colour_ui(ui, s));
 
         if s.method == Method::Pixeloe {
-            ui.separator();
-            ui.heading("PixelOE");
-            pixeloe_ui(ui, s);
+            section(ui, "PixelOE options", false, |ui| pixeloe_ui(ui, s));
         }
     }
 }
 
+/// A titled, collapsible block of the settings panel; remembers whether it is open.
+fn section(ui: &mut egui::Ui, title: &str, open: bool, add: impl FnOnce(&mut egui::Ui)) {
+    egui::CollapsingHeader::new(RichText::new(title).strong())
+        .default_open(open)
+        .show(ui, |ui| {
+            add(ui);
+            ui.add_space(4.0);
+        });
+}
+
 /// Saturation and contrast before and after the palette (K4).
 fn colour_ui(ui: &mut egui::Ui, s: &mut Settings) {
-    ui.horizontal(|ui| {
-        ui.heading("Colour");
-        if ui
-            .small_button("Reset")
-            .on_hover_text("Back to the defaults.")
-            .clicked()
-        {
-            let d = Settings::default();
-            (s.pia_saturation, s.oe_saturation) = (d.pia_saturation, d.oe_saturation);
-            (s.contrast, s.pre) = (d.contrast, d.pre);
-        }
-    });
     let saturation = if s.method == Method::Pixeloe {
         &mut s.oe_saturation
     } else {
         &mut s.pia_saturation
     };
-    egui::Grid::new("colour")
+    fn slider(v: &mut F) -> egui::Slider<'_> {
+        egui::Slider::new(v, 0.0..=3.0)
+            .step_by(0.05)
+            .fixed_decimals(2)
+    }
+    ui.label(RichText::new("Result").weak());
+    egui::Grid::new("colour_post")
         .num_columns(2)
-        .spacing([8.0, 6.0])
+        .spacing([10.0, 6.0])
         .show(ui, |ui| {
             ui.label("Saturation").on_hover_text(
-                "--saturation: chroma of the result. 1 = unchanged, 0 = grey. \
+                "--saturation: colourfulness of the result. 1 = unchanged, 0 = grey. \
                  PIA's default 1.1 is the paper's palette boost.",
             );
-            ui.add(egui::Slider::new(saturation, 0.0..=3.0).step_by(0.05));
+            ui.add(slider(saturation));
             ui.end_row();
             ui.label("Contrast").on_hover_text(
-                "--contrast: lightness of the result stretched around its mean. \
+                "--contrast: lights lighter and darks darker around the image's average. \
                  Never adds colours.",
             );
-            ui.add(egui::Slider::new(&mut s.contrast, 0.0..=3.0).step_by(0.05));
-            ui.end_row();
-            ui.label("Pre-saturation").on_hover_text(
-                "--pre-saturation: applied to the input before the palette is chosen, \
-                 so the palette itself picks more (or less) vivid colours.",
-            );
-            ui.add(egui::Slider::new(&mut s.pre.saturation, 0.0..=3.0).step_by(0.05));
-            ui.end_row();
-            ui.label("Pre-contrast")
-                .on_hover_text("--pre-contrast: input contrast before the palette is chosen.");
-            ui.add(egui::Slider::new(&mut s.pre.contrast, 0.0..=3.0).step_by(0.05));
+            ui.add(slider(&mut s.contrast));
             ui.end_row();
         });
+    ui.add_space(4.0);
+    ui.label(RichText::new("Before the palette is chosen").weak())
+        .on_hover_text(
+            "Changes which colours the palette picks: raise saturation to keep more vivid \
+             colours, contrast for more light/dark separation.",
+        );
+    egui::Grid::new("colour_pre")
+        .num_columns(2)
+        .spacing([10.0, 6.0])
+        .show(ui, |ui| {
+            ui.label("Saturation")
+                .on_hover_text("--pre-saturation, applied to the input.");
+            ui.add(slider(&mut s.pre.saturation));
+            ui.end_row();
+            ui.label("Contrast")
+                .on_hover_text("--pre-contrast, applied to the input.");
+            ui.add(slider(&mut s.pre.contrast));
+            ui.end_row();
+        });
+    ui.add_space(2.0);
+    let d = Settings::default();
+    let changed = (s.pia_saturation, s.oe_saturation, s.contrast, s.pre)
+        != (d.pia_saturation, d.oe_saturation, d.contrast, d.pre);
+    if ui
+        .add_enabled(changed, egui::Button::new("Reset colour").small())
+        .on_hover_text("Back to the defaults.")
+        .clicked()
+    {
+        (s.pia_saturation, s.oe_saturation) = (d.pia_saturation, d.oe_saturation);
+        (s.contrast, s.pre) = (d.contrast, d.pre);
+    }
 }
 
 fn combo<T: PartialEq + Copy>(ui: &mut egui::Ui, id: &str, value: &mut T, items: &[(T, &str)]) {
@@ -805,10 +830,199 @@ fn show_image(ui: &mut egui::Ui, tex: &TextureHandle, pixel_art: bool) {
     });
 }
 
+impl App {
+    /// Keyboard shortcuts: Ctrl+O open, Ctrl+Enter run, Ctrl+S save.
+    fn shortcuts(&mut self, ctx: &egui::Context) {
+        use egui::{Key, KeyboardShortcut, Modifiers};
+        if self.job.is_some() || self.profiles.dialog.is_some() {
+            return;
+        }
+        let pressed = |k: Key| {
+            ctx.input_mut(|i| i.consume_shortcut(&KeyboardShortcut::new(Modifiers::COMMAND, k)))
+        };
+        if pressed(Key::O) {
+            self.open_dialog();
+        }
+        if pressed(Key::Enter) && self.source.is_some() {
+            self.start(ctx);
+        }
+        if pressed(Key::S) && self.result.is_some() {
+            self.save_dialog();
+        }
+    }
+
+    fn toolbar(&mut self, ui: &mut egui::Ui, running: bool) {
+        ui.horizontal(|ui| {
+            ui.add_enabled_ui(!running, |ui| {
+                if ui
+                    .button("📂 Open…")
+                    .on_hover_text("Open an image (Ctrl+O). You can also drop one on the window.")
+                    .clicked()
+                {
+                    self.open_dialog();
+                }
+                let has_result = self.result.is_some();
+                if ui
+                    .add_enabled(has_result, egui::Button::new("💾 Save PNG…"))
+                    .on_hover_text("Save the result (Ctrl+S).")
+                    .on_disabled_hover_text("Run first, then save the result.")
+                    .clicked()
+                {
+                    self.save_dialog();
+                }
+                ui.add_enabled(
+                    has_result,
+                    egui::DragValue::new(&mut self.save_scale)
+                        .range(1..=32)
+                        .prefix("at ×"),
+                )
+                .on_hover_text("Scale the saved PNG up by whole pixels, so it stays sharp.");
+            });
+            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                ui.add_enabled_ui(self.result.is_some(), |ui| {
+                    ui.selectable_value(&mut self.view, View::Result, "Result")
+                        .on_hover_text("Hold Space to peek at the source.");
+                });
+                ui.add_enabled_ui(self.source.is_some(), |ui| {
+                    ui.selectable_value(&mut self.view, View::Source, "Source");
+                });
+                ui.label(RichText::new("View").weak());
+            });
+        });
+    }
+
+    fn status_bar(&self, ui: &mut egui::Ui, running: bool) {
+        ui.horizontal(|ui| {
+            if running {
+                ui.spinner();
+                ui.label("Working…");
+            } else {
+                match &self.status {
+                    Status::Idle => {
+                        ui.label(RichText::new("Open or drop an image to start.").weak());
+                    }
+                    Status::Info(s) => {
+                        ui.label(s);
+                    }
+                    Status::Warning(s) => {
+                        ui.colored_label(Color32::from_rgb(0xd8, 0xa0, 0x20), s);
+                    }
+                    Status::Error(s) => {
+                        ui.colored_label(Color32::from_rgb(0xe0, 0x50, 0x50), s);
+                    }
+                }
+            }
+            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                let info = match self.view {
+                    View::Result => self.result.as_ref().map(|r| {
+                        format!(
+                            "{}×{} · {} colours",
+                            r.image.width(),
+                            r.image.height(),
+                            r.colours
+                        )
+                    }),
+                    View::Source => self
+                        .source
+                        .as_ref()
+                        .map(|s| format!("{}×{} source", s.image.width(), s.image.height())),
+                };
+                if let Some(t) = info {
+                    ui.label(RichText::new(t).weak());
+                }
+            });
+        });
+    }
+
+    /// The settings column: profile and settings scroll; Run stays pinned at the bottom.
+    fn side_panel(&mut self, ui: &mut egui::Ui, ctx: &egui::Context, running: bool) {
+        let modal = self.profiles.dialog.is_some();
+        egui::Panel::bottom("run")
+            .show_separator_line(true)
+            .show(ui, |ui| {
+                ui.add_space(6.0);
+                let can_run = self.source.is_some() && !running && !modal;
+                let label = if running { "Working…" } else { "▶  Run" };
+                let run = ui
+                    .add_enabled(
+                        can_run,
+                        egui::Button::new(RichText::new(label).strong().size(16.0))
+                            .min_size(egui::vec2(ui.available_width(), 34.0)),
+                    )
+                    .on_hover_text("Make the pixel art (Ctrl+Enter).")
+                    .on_disabled_hover_text("Open an image first.");
+                if run.clicked() {
+                    self.start(ctx);
+                }
+                ui.add_space(4.0);
+            });
+        egui::ScrollArea::vertical().show(ui, |ui| {
+            ui.add_enabled_ui(!running && !modal, |ui| {
+                section(ui, "Profile", true, |ui| self.profile_ui(ui));
+                self.settings_ui(ui);
+            });
+        });
+    }
+
+    fn image_view(&mut self, ui: &mut egui::Ui, ctx: &egui::Context) {
+        let peek = self.view == View::Result
+            && !ctx.egui_wants_keyboard_input()
+            && ctx.input(|i| i.key_down(egui::Key::Space));
+        let view = if peek { View::Source } else { self.view };
+        let stale = self
+            .result
+            .as_ref()
+            .is_some_and(|r| r.settings != self.settings);
+        if view == View::Result && stale && self.job.is_none() {
+            ui.horizontal(|ui| {
+                ui.label(
+                    RichText::new("Settings changed since this result.")
+                        .color(Color32::from_rgb(0xd8, 0xa0, 0x20)),
+                );
+                if ui.small_button("Run again").clicked() {
+                    self.start(ctx);
+                }
+                ui.label(RichText::new("Ctrl+Enter").weak().small());
+            });
+        }
+        match view {
+            View::Result => {
+                if let Some(r) = &mut self.result {
+                    let tex = r.texture.get_or_insert_with(|| {
+                        to_texture(ctx, "result", &r.image, TextureOptions::NEAREST)
+                    });
+                    show_image(ui, tex, true);
+                }
+            }
+            View::Source => match &mut self.source {
+                Some(s) => {
+                    let tex = s.texture.get_or_insert_with(|| {
+                        to_texture(ctx, "source", &s.image, TextureOptions::LINEAR)
+                    });
+                    show_image(ui, tex, false);
+                }
+                None => {
+                    ui.centered_and_justified(|ui| {
+                        ui.label(
+                            RichText::new(
+                                "Drop an image here, or click Open… (Ctrl+O)\n\n\
+                                 Then pick a method on the left and press Run.",
+                            )
+                            .size(17.0)
+                            .weak(),
+                        );
+                    });
+                }
+            },
+        }
+    }
+}
+
 impl eframe::App for App {
     fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
         let ctx = ui.ctx().clone();
         self.poll();
+        self.shortcuts(&ctx);
         let running = self.job.is_some();
 
         if let Some(p) = ctx.input(|i| {
@@ -823,107 +1037,17 @@ impl eframe::App for App {
         }
 
         egui::Panel::top("toolbar").show(ui, |ui| {
-            ui.horizontal(|ui| {
-                ui.add_enabled_ui(!running, |ui| {
-                    if ui.button("Open…").clicked() {
-                        self.open_dialog();
-                    }
-                    let can_run = self.source.is_some();
-                    if ui
-                        .add_enabled(can_run, egui::Button::new(RichText::new("▶ Run").strong()))
-                        .clicked()
-                    {
-                        self.start(&ctx);
-                    }
-                    ui.separator();
-                    let has_result = self.result.is_some();
-                    if ui
-                        .add_enabled(has_result, egui::Button::new("Save PNG…"))
-                        .clicked()
-                    {
-                        self.save_dialog();
-                    }
-                    ui.label("scale");
-                    ui.add(
-                        egui::DragValue::new(&mut self.save_scale)
-                            .range(1..=32)
-                            .prefix("×"),
-                    )
-                    .on_hover_text("Nearest-neighbour upscale when saving (like --preview).");
-                });
-                ui.separator();
-                ui.selectable_value(&mut self.view, View::Source, "Source");
-                ui.add_enabled_ui(self.result.is_some(), |ui| {
-                    ui.selectable_value(&mut self.view, View::Result, "Result");
-                });
-            });
+            ui.add_space(2.0);
+            self.toolbar(ui, running);
+            ui.add_space(2.0);
         });
-
-        egui::Panel::bottom("status").show(ui, |ui| {
-            ui.horizontal(|ui| {
-                if running {
-                    ui.spinner();
-                    ui.label("Running…");
-                } else {
-                    match &self.status {
-                        Status::Idle => {
-                            ui.label(RichText::new("Open or drop an image to start.").weak());
-                        }
-                        Status::Info(s) => {
-                            ui.label(s);
-                        }
-                        Status::Warning(s) => {
-                            ui.colored_label(Color32::from_rgb(0xd8, 0xa0, 0x20), s);
-                        }
-                        Status::Error(s) => {
-                            ui.colored_label(Color32::from_rgb(0xe0, 0x50, 0x50), s);
-                        }
-                    }
-                }
-            });
-        });
-
+        egui::Panel::bottom("status").show(ui, |ui| self.status_bar(ui, running));
         egui::Panel::left("settings")
-            .resizable(false)
-            .exact_size(250.0)
-            .show(ui, |ui| {
-                egui::ScrollArea::vertical().show(ui, |ui| {
-                    let modal = self.profiles.dialog.is_some();
-                    ui.add_enabled_ui(!running && !modal, |ui| {
-                        self.profile_ui(ui);
-                        ui.separator();
-                        self.settings_ui(ui);
-                    });
-                });
-            });
+            .resizable(true)
+            .default_size(300.0)
+            .size_range(260.0..=440.0)
+            .show(ui, |ui| self.side_panel(ui, &ctx, running));
         self.profile_dialogs(&ctx);
-
-        egui::CentralPanel::default().show(ui, |ui| match self.view {
-            View::Result => {
-                if let Some(r) = &mut self.result {
-                    let tex = r.texture.get_or_insert_with(|| {
-                        to_texture(&ctx, "result", &r.image, TextureOptions::NEAREST)
-                    });
-                    show_image(ui, tex, true);
-                }
-            }
-            View::Source => match &mut self.source {
-                Some(s) => {
-                    let tex = s.texture.get_or_insert_with(|| {
-                        to_texture(&ctx, "source", &s.image, TextureOptions::LINEAR)
-                    });
-                    show_image(ui, tex, false);
-                }
-                None => {
-                    ui.centered_and_justified(|ui| {
-                        ui.label(
-                            RichText::new("Drop an image here, or click Open…")
-                                .size(18.0)
-                                .weak(),
-                        );
-                    });
-                }
-            },
-        });
+        egui::CentralPanel::default().show(ui, |ui| self.image_view(ui, &ctx));
     }
 }

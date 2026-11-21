@@ -1,4 +1,4 @@
-//! GUI settings (J3) and the run that turns them into an image through the same glue as the CLI
+//! GUI settings (J3, J7) and the run that turns them into an image through the same glue as the CLI
 //! (`pixplusplus::job`, J2). Settings the GUI doesn't show keep the CLI defaults.
 
 use image::RgbImage;
@@ -7,29 +7,43 @@ use pixplusplus::job::{output_size, pia_image, pixeloe_defaults, pixeloe_image, 
 use pixplusplus::pixeloe::color::Dither;
 use pixplusplus::pixeloe::pipeline::Options;
 use pixplusplus::{Adjust, ColorAdjust, Params, F};
-use std::path::PathBuf;
 use std::time::Instant;
 
 /// `--input-factor` default (B3, G7); not shown in the GUI (J3).
 pub const INPUT_FACTOR: f64 = 4.0;
 
-/// The three methods (E8).
+/// The two methods of the GUI (J7). PIA's importance map is a toggle, not a method.
 #[derive(Clone, Copy, PartialEq, Eq, Debug, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum Method {
     Pia,
-    PiaImportance,
     Pixeloe,
 }
 
 impl Method {
-    pub const ALL: [Method; 3] = [Method::Pia, Method::PiaImportance, Method::Pixeloe];
+    pub const ALL: [Method; 2] = [Method::Pia, Method::Pixeloe];
 
+    /// Full name (J7).
     pub fn label(self) -> &'static str {
         match self {
+            Method::Pia => "Pixelated Image Abstraction",
+            Method::Pixeloe => "Pixelization on Outline Expansion",
+        }
+    }
+
+    /// Short name, for the status line.
+    pub fn short(self) -> &'static str {
+        match self {
             Method::Pia => "PIA",
-            Method::PiaImportance => "PIA + importance map",
             Method::Pixeloe => "PixelOE",
+        }
+    }
+
+    /// One line on what the method does.
+    pub fn blurb(self) -> &'static str {
+        match self {
+            Method::Pia => "Solves pixels and palette together. Smooth shapes, flat colour.",
+            Method::Pixeloe => "Thickens outlines, then downscales. Crisp edges and detail.",
         }
     }
 }
@@ -45,16 +59,6 @@ pub enum PaletteChoice {
     DecimateRgb,
 }
 
-/// Where the importance map comes from (C1, E7).
-#[derive(Clone, PartialEq, Debug, serde::Serialize, serde::Deserialize)]
-#[serde(rename_all = "kebab-case")]
-pub enum ImportanceSource {
-    /// Spectral-residual saliency, `--importance auto` (E7).
-    Auto,
-    /// A grayscale image, `--importance FILE`.
-    File(PathBuf),
-}
-
 /// Everything the GUI lets you set; saved as a profile (L1). Missing fields take the defaults,
 /// so older profiles keep loading.
 #[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
@@ -67,7 +71,8 @@ pub struct Settings {
     pub colors: usize,
     /// PixelOE quantises only when `-k` is given (G8).
     pub oe_quantise: bool,
-    pub importance: ImportanceSource,
+    /// PIA's automatic importance map, `--importance auto` (E7). On by default in the GUI (J7).
+    pub importance: bool,
     /// `--oe-*` options (G9); `quant` and `pixel_size` are set at run time. A profile with only
     /// some of these fields fills the rest from the GUI defaults, not the library's (L1).
     #[serde(deserialize_with = "oe_over_gui_defaults")]
@@ -92,7 +97,7 @@ impl Default for Settings {
             size: 128,
             colors: 16,
             oe_quantise: false,
-            importance: ImportanceSource::Auto,
+            importance: true,
             // K2: the GUI defaults PixelOE to no dither; the CLI keeps upstream's ordered dither.
             oe: Options {
                 dither: Dither::None,
@@ -191,14 +196,10 @@ impl Settings {
                 warning: None,
             });
         }
-        let importance = match (self.method, &self.importance) {
-            (Method::PiaImportance, ImportanceSource::Auto) => Importance::Auto,
-            (Method::PiaImportance, ImportanceSource::File(p)) => Importance::Map(
-                image::open(p)
-                    .map_err(|e| format!("importance map {}: {e}", p.display()))?
-                    .to_luma8(),
-            ),
-            _ => Importance::None,
+        let importance = if self.importance {
+            Importance::Auto
+        } else {
+            Importance::None
         };
         let mut params = Params::new(ow, oh, self.colors);
         params.saturation = self.pia_saturation;
@@ -212,8 +213,9 @@ impl Settings {
         );
         let s = &r.output.stats;
         let summary = format!(
-            "{}  {}x{} → {}x{}  {} colours  {} iterations  {:.2} s",
-            self.method.label(),
+            "{}{}  {}x{} → {}x{}  {} colours  {} iterations  {:.2} s",
+            self.method.short(),
+            if self.importance { " + importance" } else { "" },
             r.input_w,
             r.input_h,
             r.output.width,
@@ -252,6 +254,7 @@ mod tests {
     fn pia_matches_cli() {
         // -s 64 -k 8
         let s = Settings {
+            importance: false,
             size: 64,
             colors: 8,
             ..Settings::default()
@@ -261,9 +264,8 @@ mod tests {
 
     #[test]
     fn pia_importance_auto_matches_cli() {
-        // -s 48 -k 8 --importance auto
+        // -s 48 -k 8 --importance auto (the GUI's PIA default, J7)
         let s = Settings {
-            method: Method::PiaImportance,
             size: 48,
             colors: 8,
             ..Settings::default()
@@ -291,6 +293,7 @@ mod tests {
         let s = Settings {
             size: 48,
             colors: 8,
+            importance: false,
             pia_saturation: 1.4,
             contrast: 1.2,
             pre: Adjust {
@@ -335,6 +338,7 @@ mod tests {
             let s = Settings {
                 size: 48,
                 colors: 8,
+                importance: false,
                 palette,
                 ..Settings::default()
             };

@@ -1,20 +1,44 @@
 //! Named settings profiles (L1): one JSON file per profile in the platform config folder.
 //!
-//! File shape: `{"version": 1, "settings": {...}}`. Missing settings take the defaults
+//! File shape: `{"version": 2, "settings": {...}}`. Missing settings take the defaults
 //! (`Settings` is `#[serde(default)]`), so profiles written by older builds keep loading.
+//! Version 1 had three methods and an importance source; [`migrate_v1`] maps it (J7).
 
 use crate::settings::Settings;
 use std::path::{Path, PathBuf};
 
-/// Profile file format version.
-const VERSION: u32 = 1;
+/// Profile file format version. 2: two methods, importance on/off (J7).
+const VERSION: u32 = 2;
 /// Longest profile name, in characters.
 const MAX_NAME: usize = 64;
 
-#[derive(serde::Serialize, serde::Deserialize)]
-struct File {
+#[derive(serde::Serialize)]
+struct File<'a> {
     version: u32,
-    settings: Settings,
+    settings: &'a Settings,
+}
+
+/// Version 1 → 2, keeping what the profile produced. v1 methods: `pia` (no importance map),
+/// `pia-importance` (map from `importance`: `"auto"` or `{"file": path}`), `pixeloe`. v2 has
+/// `pia` with `importance: bool` (automatic only; a v1 file map becomes automatic).
+fn migrate_v1(settings: &mut serde_json::Value) {
+    let Some(s) = settings.as_object_mut() else {
+        return;
+    };
+    let method = s
+        .get("method")
+        .and_then(|m| m.as_str())
+        .unwrap_or("pia")
+        .to_owned();
+    let importance = match method.as_str() {
+        "pia-importance" => {
+            s.insert("method".into(), "pia".into());
+            true
+        }
+        "pia" => false,
+        _ => true,
+    };
+    s.insert("importance".into(), importance.into());
 }
 
 /// The profiles folder: `pixplusplus/profiles` in the platform config folder. `None` when the
@@ -87,7 +111,7 @@ pub fn save(dir: &Path, name: &str, settings: &Settings) -> Result<(), String> {
     std::fs::create_dir_all(dir).map_err(|e| format!("{}: {e}", dir.display()))?;
     let json = serde_json::to_string_pretty(&File {
         version: VERSION,
-        settings: settings.clone(),
+        settings,
     })
     .map_err(|e| e.to_string())?;
     let tmp = staging_file(dir)?;
@@ -134,15 +158,23 @@ fn staging_file(dir: &Path) -> Result<PathBuf, String> {
 pub fn load(dir: &Path, name: &str) -> Result<Settings, String> {
     let p = path(dir, name)?;
     let text = std::fs::read_to_string(&p).map_err(|e| format!("{}: {e}", p.display()))?;
-    let f: File = serde_json::from_str(&text).map_err(|e| format!("{}: {e}", p.display()))?;
-    if f.version > VERSION {
+    let bad = |e: &dyn std::fmt::Display| format!("{}: {e}", p.display());
+    let mut f: serde_json::Value = serde_json::from_str(&text).map_err(|e| bad(&e))?;
+    let version = f.get("version").and_then(|v| v.as_u64()).unwrap_or(1);
+    if version > VERSION as u64 {
         return Err(format!(
-            "{} is from a newer Pix++ (profile version {}).",
-            p.display(),
-            f.version
+            "{} is from a newer Pix++ (profile version {version}).",
+            p.display()
         ));
     }
-    Ok(f.settings)
+    let mut settings = f
+        .get_mut("settings")
+        .map(serde_json::Value::take)
+        .unwrap_or_else(|| serde_json::json!({}));
+    if version < 2 {
+        migrate_v1(&mut settings);
+    }
+    serde_json::from_value(settings).map_err(|e| bad(&e))
 }
 
 pub fn delete(dir: &Path, name: &str) -> Result<(), String> {
@@ -153,7 +185,7 @@ pub fn delete(dir: &Path, name: &str) -> Result<(), String> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::settings::{ImportanceSource, Method};
+    use crate::settings::Method;
     use pixplusplus::pixeloe::color::Dither;
     use pixplusplus::pixeloe::downscale::Interp;
     use pixplusplus::pixeloe::pipeline::{Mode, Sharpen};
@@ -170,11 +202,11 @@ mod tests {
     fn round_trips_every_setting() {
         let dir = temp_dir("roundtrip");
         let mut s = Settings {
-            method: Method::PiaImportance,
+            method: Method::Pixeloe,
             size: 96,
             colors: 12,
             oe_quantise: true,
-            importance: ImportanceSource::File(PathBuf::from("/maps/frog.png")),
+            importance: false,
             pia_saturation: 1.35,
             oe_saturation: 0.8,
             contrast: 1.2,
@@ -286,6 +318,46 @@ mod tests {
             load(&dir, "d").unwrap().palette,
             crate::settings::PaletteChoice::DecimateRgb
         );
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn version_1_profiles_keep_their_meaning() {
+        let dir = temp_dir("v1");
+        std::fs::create_dir_all(&dir).unwrap();
+        let cases = [
+            (
+                r#"{"method": "pia", "importance": "auto"}"#,
+                Method::Pia,
+                false,
+            ),
+            (
+                r#"{"method": "pia-importance", "importance": "auto"}"#,
+                Method::Pia,
+                true,
+            ),
+            (
+                r#"{"method": "pia-importance", "importance": {"file": "/m.png"}}"#,
+                Method::Pia,
+                true,
+            ),
+            (r#"{"size": 64}"#, Method::Pia, false),
+            (r#"{"method": "pixeloe"}"#, Method::Pixeloe, true),
+        ];
+        for (i, (settings, method, importance)) in cases.iter().enumerate() {
+            let name = format!("v1-{i}");
+            std::fs::write(
+                dir.join(format!("{name}.json")),
+                format!(r#"{{"version": 1, "settings": {settings}}}"#),
+            )
+            .unwrap();
+            let s = load(&dir, &name).unwrap();
+            assert_eq!(
+                (s.method, s.importance),
+                (*method, *importance),
+                "{settings}"
+            );
+        }
         let _ = std::fs::remove_dir_all(&dir);
     }
 
