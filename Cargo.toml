@@ -4,6 +4,8 @@ version = "0.1.0"
 edition = "2021"
 description = "Pix++, a procedural pixelization program: Pixelated Image Abstraction (Gerstner et al. 2012) in Rust: joint superpixel + palette optimisation via mass-constrained deterministic annealing, in Oklab."
 license = "MIT OR Apache-2.0"
+# Two binaries (CLI and GUI); plain `cargo run` runs the CLI.
+default-run = "pixplusplus"
 
 [lib]
 path = "src/lib.rs"
