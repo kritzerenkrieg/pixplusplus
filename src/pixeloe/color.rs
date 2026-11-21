@@ -291,27 +291,32 @@ fn ordered_dither(img: &Img, pal: &[[f32; 3]]) -> Img {
         for x in 0..img.w {
             let i = y * img.w + x;
             let p = [img.data[i], img.data[n + i], img.data[2 * n + i]];
-            let mut d: Vec<(f32, usize)> = pal
-                .iter()
-                .enumerate()
-                .map(|(j, q)| {
-                    let t = [p[0] - q[0], p[1] - q[1], p[2] - q[2]];
-                    (t[0] * t[0] + t[1] * t[1] + t[2] * t[2], j)
-                })
-                .collect();
-            d.sort_by(|a, b| a.0.total_cmp(&b.0).then(a.1.cmp(&b.1)));
-            if d.len() < 2 {
-                for (c, &v) in pal[d[0].1].iter().enumerate() {
+            // The two nearest colours in one scan, ordered by (distance, index) as a full sort
+            // would order them.
+            let mut first: Option<(f32, usize)> = None;
+            let mut second: Option<(f32, usize)> = None;
+            let before = |a: (f32, usize), b: Option<(f32, usize)>| {
+                b.is_none_or(|b| a.0.total_cmp(&b.0).then(a.1.cmp(&b.1)).is_lt())
+            };
+            for (j, q) in pal.iter().enumerate() {
+                let t = [p[0] - q[0], p[1] - q[1], p[2] - q[2]];
+                let c = (t[0] * t[0] + t[1] * t[1] + t[2] * t[2], j);
+                if before(c, first) {
+                    second = first;
+                    first = Some(c);
+                } else if before(c, second) {
+                    second = Some(c);
+                }
+            }
+            let d0 = first.expect("palette has at least one colour");
+            let Some(d1) = second else {
+                for (c, &v) in pal[d0.1].iter().enumerate() {
                     out.data[c * n + i] = v;
                 }
                 continue;
-            }
-            let ratio = d[0].0 / (d[0].0 + d[1].0 + 1e-6);
-            let pick = if b[y % 8][x % 8] > ratio {
-                d[0].1
-            } else {
-                d[1].1
             };
+            let ratio = d0.0 / (d0.0 + d1.0 + 1e-6);
+            let pick = if b[y % 8][x % 8] > ratio { d0.1 } else { d1.1 };
             for (c, &v) in pal[pick].iter().enumerate() {
                 out.data[c * n + i] = v;
             }

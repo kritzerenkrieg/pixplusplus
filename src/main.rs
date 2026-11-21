@@ -42,7 +42,7 @@ struct Cli {
     /// Downscale the input so it is at most this many times the output (0 = use input as is).
     /// Under PixelOE, also the pixel size; the input is resized to exactly this times the output
     /// (G7).
-    #[arg(long, default_value_t = 4.0)]
+    #[arg(long, default_value_t = 4.0, value_parser = parse_input_factor)]
     input_factor: f64,
     #[arg(long, value_enum, default_value_t = SpaceArg::Oklab)]
     space: SpaceArg,
@@ -191,6 +191,14 @@ fn parse_factor(s: &str) -> Result<F, String> {
     match s.parse::<F>() {
         Ok(v) if v.is_finite() && v >= 0.0 => Ok(v),
         _ => Err("expected a number >= 0 (1 = unchanged)".into()),
+    }
+}
+
+/// `--input-factor`: finite and >= 0 (0 = raw input). Infinity overflowed the PixelOE resize.
+fn parse_input_factor(s: &str) -> Result<f64, String> {
+    match s.parse::<f64>() {
+        Ok(v) if v.is_finite() && v >= 0.0 => Ok(v),
+        _ => Err("expected a number >= 0 (0 = use the input as is)".into()),
     }
 }
 
@@ -499,6 +507,19 @@ mod tests {
             assert!(parse(bad).is_err(), "{bad}");
         }
         assert_eq!(parse("0").unwrap().oe_sharpen_factor, Some(0.0));
+    }
+
+    #[test]
+    fn input_factor_must_be_finite() {
+        let parse = |v: &str| {
+            Cli::try_parse_from(["pixplusplus", "in.png", "-o", "o.png", "--input-factor", v])
+        };
+        for bad in ["inf", "NaN", "-1"] {
+            assert!(parse(bad).is_err(), "{bad}");
+        }
+        assert_eq!(parse("0").unwrap().input_factor, 0.0);
+        let default = Cli::try_parse_from(["pixplusplus", "in.png", "-o", "o.png"]).unwrap();
+        assert_eq!(default.input_factor, 4.0);
     }
 
     #[test]
