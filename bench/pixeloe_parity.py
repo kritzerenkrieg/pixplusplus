@@ -12,7 +12,7 @@ usage:
 
 Each torch run is a separate process so its peak RSS is its own. Timings exclude imports.
 """
-import argparse, json, math, subprocess, sys, time
+import argparse, json, math, re, subprocess, sys, time
 from pathlib import Path
 
 import numpy as np
@@ -20,6 +20,9 @@ from PIL import Image
 
 HERE = Path(__file__).resolve().parent
 PS = 4
+EXTS = {".png", ".jpg", ".jpeg", ".webp"}
+# Names prep writes: <source file name>_<size>.png, e.g. scene.jpg_128.png.
+PREPPED = re.compile(r"^.+\.(png|jpe?g|webp)_\d+\.png$", re.IGNORECASE)
 
 
 def round_half_up(x):
@@ -41,22 +44,24 @@ def out_size(w, h, s):
 
 def cmd_prep(a):
     work = Path(a.work)
-    # The cleanup below deletes WORK/in/*.png, which would be the sources themselves if SRC_DIR
-    # is WORK/in. (Both listings are non-recursive, so nested folders can't lose files.)
-    if (work / "in").resolve() == Path(a.src).resolve():
-        sys.exit(f"SRC_DIR must not be {work / 'in'}: prep clears that folder")
-    (work / "in").mkdir(parents=True, exist_ok=True)
+    inp = work / "in"
+    if inp.resolve() == Path(a.src).resolve():
+        sys.exit(f"SRC_DIR must not be {inp}: prep writes its inputs there")
+    inp.mkdir(parents=True, exist_ok=True)
+    srcs = sorted(p for p in Path(a.src).iterdir() if p.suffix.lower() in EXTS)
     # Start the input set afresh so sizes or sources from an earlier prep aren't run again.
-    # The torch and pixplusplus result folders are left alone (they're costly to remake).
-    for old in (work / "in").glob("*.png"):
-        old.unlink()
-    srcs = sorted(p for p in Path(a.src).iterdir() if p.suffix.lower() in {".png", ".jpg", ".jpeg", ".webp"})
+    # Only files prep itself writes (<source file name>_<size>.png) are removed, never a file a
+    # source resolves to (a symlink into WORK/in). The result folders are left alone.
+    keep = {p.resolve() for p in srcs}
+    for old in inp.iterdir():
+        if PREPPED.match(old.name) and old.is_file() and old.resolve() not in keep:
+            old.unlink()
     for p in srcs:
         img = Image.open(p).convert("RGB")
         for s in a.sizes:
             ow, oh = out_size(*img.size, s)
             # p.name keeps scene.jpg and scene.png apart; the trailing _<size> still parses.
-            img.resize((ow * PS, oh * PS), Image.LANCZOS).save(work / "in" / f"{p.name}_{s}.png")
+            img.resize((ow * PS, oh * PS), Image.LANCZOS).save(inp / f"{p.name}_{s}.png")
             print(p.stem, s, (ow, oh))
 
 
