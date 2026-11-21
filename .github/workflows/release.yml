@@ -1,0 +1,88 @@
+# Q1: pushing a version tag (v1.2.3) builds the CLI and GUI on Linux and Windows (J5),
+# runs the tests, and publishes a GitHub Release with one archive per platform.
+# The tag must match the version in Cargo.toml.
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+    name: build (${{ matrix.target }})
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          - os: ubuntu-latest
+            target: linux-x86_64
+          - os: windows-latest
+            target: windows-x86_64
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Tag matches Cargo.toml
+        shell: bash
+        run: |
+          v=$(sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -1)
+          if [ "v$v" != "$GITHUB_REF_NAME" ]; then
+            echo "::error::tag $GITHUB_REF_NAME does not match Cargo.toml version $v"
+            exit 1
+          fi
+      - uses: dtolnay/rust-toolchain@stable
+      # The GUI's native file dialogs (rfd) build against GTK 3 on Linux.
+      - name: Install GTK (Linux)
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y libgtk-3-dev
+      - uses: Swatinem/rust-cache@v2
+      - name: Tests
+        run: cargo test --release --features gui
+      - name: Build CLI and GUI
+        run: cargo build --release --features gui
+      - name: Package
+        shell: bash
+        run: |
+          name="pixplusplus-${GITHUB_REF_NAME}-${{ matrix.target }}"
+          mkdir -p "dist/$name"
+          cp README.md "dist/$name/"
+          cp -r LICENSES "dist/$name/"
+          if [ "${{ runner.os }}" = "Windows" ]; then
+            cp target/release/pixplusplus.exe target/release/pixplusplus-gui.exe "dist/$name/"
+            (cd dist && 7z a "$name.zip" "$name" >/dev/null)
+          else
+            cp target/release/pixplusplus target/release/pixplusplus-gui "dist/$name/"
+            tar -C dist -czf "dist/$name.tar.gz" "$name"
+          fi
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.target }}
+          path: |
+            dist/*.tar.gz
+            dist/*.zip
+          if-no-files-found: error
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+      - name: Publish GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          ls -l dist
+          gh release create "$GITHUB_REF_NAME" dist/* \
+            --repo "$GITHUB_REPOSITORY" \
+            --title "Pix++ $GITHUB_REF_NAME" \
+            --generate-notes

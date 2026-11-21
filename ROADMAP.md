@@ -111,6 +111,10 @@ Goal: outputs keep the source's vivid colours, and saturation and contrast are a
 - [x] Q4: PIA uses `--importance auto` by default; `--importance none` for plain PIA; compat always without. Done when: the default output equals the old `--importance auto` output, `--importance none` equals the old default, compat is unchanged. (2026-11-21: all three byte-identical.)
 - [x] Q2: cap the saliency working height at 512. Done when: an 8×1024 input finishes quickly with a full-size map, and normal images keep their map. (2026-11-21: test passes in about 1 s; smoke map byte-identical; harness test passes.)
 
+## Releases (Q1)
+
+- [ ] Release workflow: a `vX.Y.Z` tag matching `Cargo.toml` builds and tests on Linux and Windows and publishes a GitHub Release with both archives. Done when: the first tag's Release has both archives and they run. (2026-11-21: `.github/workflows/release.yml` added; no tag pushed yet.)
+
 ## Cycle: feature and maintenance
 
 No end state. Once the planned phases are done, work repeats this loop. Each turn is a small phase of its own: new decisions first, then tasks.

@@ -15,6 +15,12 @@ Two methods:
   (outline expansion, contrast-aware downscale, optional k-means palette and dithering).
   It matches upstream within 0.001 mean ΔE and is faster than torch on CPU.
 
+## Download
+
+Each tagged version has a [GitHub Release](https://github.com/kritzerenkrieg/pixplusplus/releases)
+with the CLI and GUI for Linux (x86_64, `.tar.gz`) and Windows (x86_64, `.zip`). On Linux the GUI
+needs GTK 3 installed.
+
 ## Build
 
 Needs Rust stable ([rustup](https://rustup.rs)) and the C compiler and linker Rust builds with:
