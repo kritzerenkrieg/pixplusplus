@@ -120,7 +120,17 @@ Both scripts use the Python venv in `bench/.venv`:
 
 ```sh
 bench/.venv/bin/python bench/parity.py <source> <pyxeled_out> <pixplusplus_out>...
-bench/.venv/bin/python bench/pixeloe_parity.py
+```
+
+The PixelOE check runs in four stages over a work directory (`WORK`). The torch stage needs
+`pixeloe` and torch installed and is heavy, so run it on a remote machine:
+
+```sh
+PY=bench/.venv/bin/python
+$PY bench/pixeloe_parity.py prep SRC_DIR WORK [--sizes 128 512]   # resize sources to WORK/in/
+$PY bench/pixeloe_parity.py torch WORK                            # upstream -> WORK/torch/
+$PY bench/pixeloe_parity.py pixplusplus WORK target/release/pixplusplus   # -> WORK/pixplusplus/
+$PY bench/pixeloe_parity.py compare WORK                          # parity table to stdout
 ```
 
 Every divergence and the measured parity numbers are in [`docs/PORTING.md`](docs/PORTING.md).
