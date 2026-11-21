@@ -295,12 +295,18 @@ fn lanczos_axis(
         .map(|&coord| {
             let left = coord - eff_a + 0.5;
             let right = coord + eff_a + 0.5;
-            let mut ws: Vec<(usize, f32)> = (0..n_idx)
-                .map(|i| {
+            // Only indices inside [left, right) can have a nonzero weight; the zeros upstream
+            // also builds don't change the sum, so the weights are identical.
+            let lo = (left.floor().max(0.0) as usize).min(n_idx);
+            let hi = ((right.ceil().max(0.0) as usize) + 1)
+                .min(n_idx)
+                .min(in_size);
+            let mut ws: Vec<(usize, f32)> = (lo..hi.max(lo))
+                .filter(|&i| {
                     let fi = i as f32;
-                    let valid = fi >= left && fi < right && i < in_size;
-                    (i, if valid { kern(fi - coord) } else { 0.0 })
+                    fi >= left && fi < right
                 })
+                .map(|i| (i, kern(i as f32 - coord)))
                 .collect();
             let sum: f32 = ws.iter().map(|w| w.1).sum();
             for w in &mut ws {
@@ -417,13 +423,26 @@ pub fn interpolate(img: &Img, oh: usize, ow: usize, mode: Interp) -> Img {
             for c in 0..img.c {
                 for (y, &(y0, y1)) in ay.iter().enumerate() {
                     for (x, &(x0, x1)) in ax.iter().enumerate() {
-                        let mut s = 0.0f32;
-                        for yy in y0..y1 {
-                            for xx in x0..x1 {
-                                s += img.at(c, yy, xx);
+                        let n = ((y1 - y0) * (x1 - x0)) as f32;
+                        if oh == 1 && ow == 1 {
+                            // torch pools to 1x1 with `input.mean`, an accurate reduction; a long
+                            // f32 running sum drifts (a flat 204/255 512x512 image gave 203).
+                            let mut s = 0.0f64;
+                            for yy in y0..y1 {
+                                for xx in x0..x1 {
+                                    s += img.at(c, yy, xx) as f64;
+                                }
                             }
+                            out.set(c, y, x, (s / n as f64) as f32);
+                        } else {
+                            let mut s = 0.0f32;
+                            for yy in y0..y1 {
+                                for xx in x0..x1 {
+                                    s += img.at(c, yy, xx);
+                                }
+                            }
+                            out.set(c, y, x, s / n);
                         }
-                        out.set(c, y, x, s / ((y1 - y0) * (x1 - x0)) as f32);
                     }
                 }
             }
@@ -463,6 +482,16 @@ pub fn interpolate(img: &Img, oh: usize, ow: usize, mode: Interp) -> Img {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn area_to_one_pixel_is_accurate() {
+        let v = 204.0 / 255.0;
+        let img = Img::from_vec(3, 512, 512, vec![v; 3 * 512 * 512]);
+        let out = interpolate(&img, 1, 1, Interp::Area);
+        for c in 0..3 {
+            assert_eq!((out.at(c, 0, 0) * 255.0).round(), 204.0);
+        }
+    }
     use crate::pixeloe::fixtures::{assert_close, img};
 
     #[test]
