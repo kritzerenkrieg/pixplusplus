@@ -1,16 +1,27 @@
 [package]
-name = "piaru"
+name = "pixplusplus"
 version = "0.1.0"
 edition = "2021"
-description = "Pixelated Image Abstraction (Gerstner et al. 2012) in Rust: joint superpixel + palette optimisation via mass-constrained deterministic annealing, in Oklab."
+description = "Pix++, a procedural pixelization program: Pixelated Image Abstraction (Gerstner et al. 2012) in Rust: joint superpixel + palette optimisation via mass-constrained deterministic annealing, in Oklab."
 license = "MIT OR Apache-2.0"
+# Two binaries (CLI and GUI); plain `cargo run` runs the CLI.
+default-run = "pixplusplus"
 
 [lib]
 path = "src/lib.rs"
 
 [[bin]]
-name = "piaru"
+name = "pixplusplus"
 path = "src/main.rs"
+
+# Desktop GUI (J1, J2): `cargo build --release --features gui`.
+[[bin]]
+name = "pixplusplus-gui"
+path = "src/gui/main.rs"
+required-features = ["gui"]
+
+[features]
+gui = ["dep:eframe", "dep:rfd"]
 
 [dependencies]
 image = { version = "0.25", default-features = false, features = ["png", "jpeg", "webp"] }
@@ -18,6 +29,9 @@ rayon = "1.10"
 clap = { version = "4.5", features = ["derive"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+# GUI only (J6).
+eframe = { version = "0.37", optional = true }
+rfd = { version = "0.18", optional = true }
 
 [profile.release]
 opt-level = 3

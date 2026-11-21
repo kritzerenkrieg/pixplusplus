@@ -1,6 +1,6 @@
-"""Milestone 2 correctness check: PIARU vs the Pyxeled reference output on Pyxeled's own example.
+"""Milestone 2 correctness check: Pix++ vs the Pyxeled reference output on Pyxeled's own example.
 
-usage: parity.py SOURCE PYXELED_OUT PIARU_OUT [PIARU_OUT ...]
+usage: parity.py SOURCE PYXELED_OUT PIXPLUSPLUS_OUT [PIXPLUSPLUS_OUT ...]
 """
 import sys
 import numpy as np

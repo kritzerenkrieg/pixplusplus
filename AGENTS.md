@@ -4,7 +4,7 @@ Method: [DLAD (Decision-led Agentic Development)](https://github.com/kritzerenkr
 
 Read `DECISIONS.md` first. It overrules `ARCHITECTURE.md` and `ROADMAP.md` wherever they disagree.
 
-This repository is the implementation only: the PIA solver, CLI and Pyxeled parity. The research project (paper, literature review, benchmark harness, human study) is the sibling `../PIXSOTA` checkout with its own `AGENTS.md` and `DECISIONS.md`. Do not edit it from here without an explicit task.
+This repository is Pix++: the PIA solver, the CLI, Pyxeled parity and the PixelOE port. It is a standalone project; don't read from or write to other checkouts.
 
 ## Decision statuses
 
@@ -17,14 +17,14 @@ This repository is the implementation only: the PIA solver, CLI and Pyxeled pari
 
 ## Commands
 
-- Install: Rust stable via rustup. The parity check uses the Python venv in `bench/.venv` (shared with `../PIXSOTA`).
+- Install: Rust stable via rustup. The parity scripts use the Python venv in `bench/.venv`.
 - Build: `cargo build --release`
 - Test (all): `cargo test`
 - Test (single): `cargo test <name>`, e.g. `cargo test respects_hard_palette_limit`
-- Lint: `cargo clippy` (must stay warning-free). Format: not enforced yet (E4). Don't reformat files you aren't otherwise changing.
+- Lint: `cargo clippy` (must stay warning-free). Format: `cargo fmt --check` must pass (E4).
 - Typecheck: `cargo check`
-- Smoke run (about 1 s): `./target/release/piaru ../PIXSOTA/bench/images/hunter_hunting.jpg -o target/smoke.png -s 128 -k 16 --stats target/smoke.json`
-- Parity check: `bench/.venv/bin/python bench/parity.py <source> <pyxeled_out> <piaru_out>...` (see `docs/PORTING.md`)
+- Smoke run (about 1 s; PIA with the automatic importance map, the default since Q4): `./target/release/pixplusplus bench/images/hunter_hunting.jpg -o target/smoke.png -s 128 -k 16 --stats target/smoke.json`
+- Parity check: `bench/.venv/bin/python bench/parity.py <source> <pyxeled_out> <pixplusplus_out>...` (see `docs/PORTING.md`)
 
 ## Working loop
 
@@ -48,7 +48,7 @@ Work does not end after the last phase. Each new feature is a new lettered phase
 
 **Ask first**
 - Adding or upgrading a dependency, unless a maintenance task in `ROADMAP.md` names it.
-- Changing CLI flags, defaults, `Params`, or the `--stats` JSON shape (the `../PIXSOTA` harness reads it).
+- Changing CLI flags, defaults, `Params`, or the `--stats` JSON shape (external tools read it).
 - Changing solver constants (`Params::new`) or anything that moves reported benchmark numbers.
 - Deleting files or data, or any change outside the task's scope.
 - Any job heavier than the smoke run on this machine: the full benchmark, the 512 profile, torch or PixelOE runs (A5).
@@ -71,4 +71,3 @@ Work does not end after the last phase. Each new feature is a new lettered phase
 - Design: `ARCHITECTURE.md`
 - Plan: `ROADMAP.md`
 - Port notes and parity numbers: `docs/PORTING.md`
-- Research project: `../PIXSOTA/ROADMAP.md`, `../PIXSOTA/PAPER.md`

@@ -1,15 +1,14 @@
-# PIARU
+# Pix++
 
 How the system is built. `DECISIONS.md` overrules this file wherever they disagree. Cite decision codes (`B2`) instead of restating the choice or its reason.
 
 ```mermaid
 flowchart LR
-    User["User / bench scripts"] --> CLI["piaru CLI (main.rs)"]
+    User["User / bench scripts"] --> CLI["pixplusplus CLI (main.rs)"]
     CLI --> Solver["Solver (pia.rs)"]
     Solver --> Color["Colour (color.rs)"]
     CLI --> Files[("PNG out, preview, stats JSON")]
-    Bench["../PIXSOTA/bench/*.py"] --> CLI
-    Bench --> PixelOE["PixelOE baseline"]
+    CLI --> PixelOE["PixelOE port (pixeloe/)"]
 ```
 
 ## A. Purpose and scope
@@ -18,31 +17,34 @@ Turns concept art into pixel art with a hard palette limit, using Pixelated Imag
 
 **Goals**
 - Faithful, fast Rust port of the method, with checked parity against Pyxeled (A4).
-- Optional artist control: importance map (C1); experimental edge weight (C2).
-- A benchmark that decides whether experimental features ship (C3, C4, D1). The harness lives in the sibling `../PIXSOTA` checkout and runs this CLI.
+- Optional artist control: importance map (C1). The experimental edge weight (C2) was cut (E1).
+- PixelOE as a second method, ported from its torch backend and checked against it (G1–G5).
 
 **Non-goals**
 - GPU or ML methods.
-- A GUI, for now (E2).
+- A GUI, until Phase J is Decided (J1–J6).
 
 ## B. Context
 
 | Actor / external system | Direction | Interface |
 |---|---|---|
-| User | in | CLI (`piaru --help`) |
+| User | in | CLI (`pixplusplus --help`) |
 | Image files | in / out | PNG / JPEG / WebP in; PNG out |
-| Benchmark harness (`../PIXSOTA/bench/`) | both | Runs the CLI and reads `--stats` JSON |
-| PixelOE, Pyxeled (`refs/`) | in | Baseline and reference, Python |
+| PixelOE, Pyxeled (`refs/`) | in | References for the ports, Python |
 
 ## C. Components
 
 | Component | Responsibility | Depends on | Owns (data/state) |
 |---|---|---|---|
-| `src/main.rs` | Argument parsing, image I/O, input downscale (B3), stats JSON | lib | Output files |
+| `src/main.rs` | Argument parsing, `--method` pia or pixeloe (G4), image I/O, input downscale (B3, G7), stats JSON | lib | Output files |
 | `src/pia.rs` | Solver: superpixel refinement, MCDA association and palette refinement, splits, final merge (B4) | color, rayon | `Params`, `Output`, `Stats` |
 | `src/color.rs` | sRGB ↔ Oklab ×100 / CIELAB, distance | none | `Space`, `F` (B2) |
+| `src/saliency.rs` | Spectral-residual saliency for `--importance auto`, matching Pillow's rounding (E7) | none | `spectral_residual` |
+| `src/pixeloe/` | PixelOE port (G1–G9): `lab`, `morph`, `outline`, `sharpen`, `downscale`, `color`, `pipeline::pixelize` | none | `pixelize`, `Options` |
 | `src/lib.rs` | Public API re-exports, peak RSS | pia, color | none |
 | `bench/parity.py`, `bench/metrics.py` | Pyxeled parity check against the reference output | CLI release build, `refs/` | nothing |
+| `bench/pixeloe_ref.py`, `bench/pixeloe_parity.py` | PixelOE fixtures and parity against pixeloe.torch (G3, G5) | `refs/PixelOE`, torch | `tests/fixtures/pixeloe/` |
+| `bench/showcase.py` | Labeled comparison page of the three methods (E8) | CLI release build | `bench/out/showcase/` |
 
 ## D. Key flows
 
@@ -54,11 +56,9 @@ Turns concept art into pixel art with a hard palette limit, using Pixelated Imag
 5. At T_final: merge any leftover pairs (B4), apply saturation (B5), write one pixel per superpixel.
 
 **Parity check**
-1. `bench/parity.py` loads the source, the Pyxeled output and one or more PIARU outputs.
+1. `bench/parity.py` loads the source, the Pyxeled output and one or more Pix++ outputs.
 2. `bench/metrics.py` computes ΔE against the box-downsampled source, edge retention and palette distances.
 3. The result is compared against the parity numbers recorded in `docs/PORTING.md` (A4, B1).
-
-The benchmark flow (inputs, columns, blind sheet, verdict) lives in `../PIXSOTA` (see its `README.md`); it calls this CLI and reads `--stats`.
 
 ## E. Data
 
@@ -67,15 +67,14 @@ The benchmark flow (inputs, columns, blind sheet, verdict) lives in `../PIXSOTA`
 | Palette | ≤ K_max colours (hard limit, B4) | Memory, `palette_srgb` in stats | Per run |
 | Superpixel | Position, mean colour, p(s) (importance-weighted, C1) | Memory | Per run |
 | Stats JSON | `params`, `stats.timings`, `iterations`, `peak_rss_kib`, `wall_ms` | `--stats` path | File |
-| Benchmark results | One CSV row per image × size × K × method | `../PIXSOTA/data/` and `../PIXSOTA/bench/out/` | Outside this repo |
 
 ## F. Interfaces and contracts
 
 | Interface | Kind | Spec location |
 |---|---|---|
-| `piaru` CLI | CLI | `src/main.rs` (`Cli`) |
-| `piaru::run(&Input, &Params) -> Output` | Rust API | `src/pia.rs` |
-| Stats JSON | File | `src/main.rs`, read by `../PIXSOTA/bench/run_bench.py` |
+| `pixplusplus` CLI | CLI | `src/main.rs` (`Cli`) |
+| `pixplusplus::run(&Input, &Params) -> Output` | Rust API | `src/pia.rs` |
+| Stats JSON | File | `src/main.rs` |
 
 ## G. Stack
 
@@ -89,7 +88,7 @@ The benchmark flow (inputs, columns, blind sheet, verdict) lives in `../PIXSOTA`
 
 ## H. Quality targets
 
-No numeric targets (D3): quality is judged by the blind rating, and cost is reported as peak memory and solve time. These are measurements, not commitments.
+No numeric quality targets. Cost is reported as peak memory and solve time; these are measurements, not commitments.
 
 | Attribute | Measured | How checked |
 |---|---|---|
@@ -103,14 +102,14 @@ No numeric targets (D3): quality is judged by the blind rating, and cost is repo
 - Heavy jobs run remotely (A5).
 - CPU only.
 - `--pyxeled-compat` must keep reproducing Pyxeled (A4).
-- Benchmark images and licences: `../PIXSOTA/bench/images/ATTRIBUTION.md`.
+- Test images and licences: `bench/images/ATTRIBUTION.md`.
 
 ## J. Repository layout
 
 ```
-src/            crate: main.rs (CLI), lib.rs, pia.rs (solver), color.rs
-bench/          parity.py + metrics.py (parity check only); out/ generated
+src/            crate: main.rs (CLI), lib.rs, pia.rs (solver), color.rs, saliency.rs, pixeloe/
+bench/          parity, fixture and showcase scripts; images/ (smoke image); out/ generated
+tests/fixtures/ reference dumps for saliency and PixelOE
 docs/           PORTING.md (Pyxeled divergences, parity numbers)
 refs/           vendored Pyxeled and PixelOE (git-ignored, read-only)
-../PIXSOTA/     research project: paper, benchmark harness, literature review, study
 ```
