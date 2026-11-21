@@ -206,12 +206,21 @@ impl App {
 
     fn poll(&mut self) {
         if let Some(rx) = &self.export {
-            if let Ok(r) = rx.try_recv() {
-                self.export = None;
-                self.status = match r {
-                    Ok(path) => Status::Info(format!("Saved {}", path.display())),
-                    Err(e) => Status::Error(e),
-                };
+            use std::sync::mpsc::TryRecvError;
+            match rx.try_recv() {
+                Ok(r) => {
+                    self.export = None;
+                    self.status = match r {
+                        Ok(path) => Status::Info(format!("Saved {}", path.display())),
+                        Err(e) => Status::Error(e),
+                    };
+                }
+                // The worker died before reporting (a panic): unlock the window.
+                Err(TryRecvError::Disconnected) => {
+                    self.export = None;
+                    self.status = Status::Error("Saving failed unexpectedly.".into());
+                }
+                Err(TryRecvError::Empty) => {}
             }
         }
         let Some(rx) = &self.job else { return };

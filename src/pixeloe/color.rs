@@ -349,12 +349,20 @@ fn error_diffusion(img: &Img, pal: &[[f32; 3]]) -> Img {
     let mut y = 0;
     while y < h {
         if y + 2 < h {
-            // error of rows y .. y+2 (the reflect-padded rows the update reads)
-            let err_at = |out: &Img, c: usize, yy: usize, xx: usize| -> f32 {
-                let i = yy * w + xx;
-                let p = [out.data[i], out.data[n + i], out.data[2 * n + i]];
-                out.data[c * n + i] - pal[nearest(&p, pal, None)][c]
-            };
+            // Error of rows y ..= y+2 (the rows the update reads), one palette search per
+            // pixel, stored per channel: err[(c * 3 + row - y) * w + x].
+            let mut err = vec![0.0f32; 3 * 3 * w];
+            for r in 0..3 {
+                for x in 0..w {
+                    let i = (y + r) * w + x;
+                    let p = [out.data[i], out.data[n + i], out.data[2 * n + i]];
+                    let q = pal[nearest(&p, pal, None)];
+                    for c in 0..3 {
+                        err[(c * 3 + r) * w + x] = p[c] - q[c];
+                    }
+                }
+            }
+            let err_at = |c: usize, yy: usize, xx: usize| err[(c * 3 + yy - y) * w + xx];
             let mut upd = vec![0.0f32; 3 * 2 * w];
             for c in 0..3 {
                 for (r, row) in (y + 1..y + 3).enumerate() {
@@ -364,7 +372,7 @@ fn error_diffusion(img: &Img, pal: &[[f32; 3]]) -> Img {
                             let yy = refl(row as isize + a as isize - 1, h);
                             for (b, &kv) in kr.iter().enumerate() {
                                 let xx = refl(x as isize + b as isize - 1, w);
-                                s += err_at(&out, c, yy, xx) * kv;
+                                s += err_at(c, yy, xx) * kv;
                             }
                         }
                         upd[(c * 2 + r) * w + x] = s;

@@ -27,6 +27,11 @@ def round_half_up(x):
     return math.floor(x + 0.5)
 
 
+def mib(kib):
+    """Peak RSS for the table; Pix++ writes null where /proc is unavailable."""
+    return "N/A" if kib is None else f"{kib / 1024:.0f}"
+
+
 def out_size(w, h, s):
     """Pix++'s -s rule (src/job.rs output_size): long side s, aspect kept, rounded."""
     if w >= h:
@@ -109,7 +114,7 @@ def cmd_compare(a):
         rows.append(ok)
         print(f"| {name} | {s} | {de.mean():.3f} | {de.max():.1f} | {same:.2f} % | {tj['ms']:.0f} | "
               f"{pj['stats']['timings']['total_ms']:.0f} | {tj['peak_rss_kib'] / 1024:.0f} | "
-              f"{pj['peak_rss_kib'] / 1024:.0f} |{'' if ok else ' **over G5**'}")
+              f"{mib(pj['peak_rss_kib'])} |{'' if ok else ' **over G5**'}")
     print(f"\n{sum(rows)}/{len(rows)} within G5 (mean ΔE ≤ 0.5, ≥ 99 % identical); worst mean ΔE {worst:.3f}")
     if not rows:
         sys.exit("no images compared: run the prep step first")
