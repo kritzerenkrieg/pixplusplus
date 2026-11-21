@@ -68,8 +68,8 @@ pub struct PiaResult {
 /// `adjust.pre` runs on the resized input, `adjust.post` on the output palette (K4); the
 /// solver's own `params.saturation` (B5) is separate and comes first.
 /// With `decimate`, the solver runs at a larger palette ([`decimate::pia_solve_k`]) and the
-/// result is decimated to `params.k_max` colours (K1); `params.k_max` in the result is then the
-/// size that was solved.
+/// result is decimated to `params.k_max` colours (K1, M1); `params.k_max` in the result stays the
+/// requested limit (user choice, 2026-11-21), so `--stats` reports `-k`, not the solve size.
 pub fn pia_image(
     mut img: RgbImage,
     mut params: Params,
@@ -127,6 +127,7 @@ pub fn pia_image(
         params.k_max = decimate::pia_solve_k(k);
     }
     let mut output = run(&input, &params);
+    params.k_max = k;
     let mut image =
         RgbImage::from_raw(output.width as u32, output.height as u32, output.rgb8()).unwrap();
     if let Some(d) = decimate {
@@ -379,7 +380,7 @@ mod tests {
             Some(Distance::Rgb),
         );
         let out = &r.output;
-        assert_eq!(r.params.k_max, decimate::pia_solve_k(k));
+        assert_eq!(r.params.k_max, k, "stats report the requested limit");
         assert!(out.palette_srgb.len() <= k && out.stats.palette_size == out.palette_srgb.len());
         assert_eq!(out.palette.len(), out.palette_srgb.len());
         for (w, s) in out.palette.iter().zip(&out.palette_srgb) {
