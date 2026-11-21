@@ -109,5 +109,5 @@ z.addEventListener('close',()=>{{if(from)from.focus()}});
 </script></body></html>"""
 out = Path(a.out)
 out.parent.mkdir(parents=True, exist_ok=True)
-out.write_text(page)
+out.write_text(page, encoding="utf-8")
 print(f"wrote {out} ({len(rows)} images, {out.stat().st_size / 1e6:.1f} MB)")

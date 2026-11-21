@@ -12,7 +12,7 @@ usage:
 
 Each torch run is a separate process so its peak RSS is its own. Timings exclude imports.
 """
-import argparse, json, math, resource, subprocess, sys, time
+import argparse, json, math, subprocess, sys, time
 from pathlib import Path
 
 import numpy as np
@@ -42,6 +42,10 @@ def out_size(w, h, s):
 def cmd_prep(a):
     work = Path(a.work)
     (work / "in").mkdir(parents=True, exist_ok=True)
+    # Start the input set afresh so sizes or sources from an earlier prep aren't run again.
+    # The torch and pixplusplus result folders are left alone (they're costly to remake).
+    for old in (work / "in").glob("*.png"):
+        old.unlink()
     srcs = sorted(p for p in Path(a.src).iterdir() if p.suffix.lower() in {".png", ".jpg", ".jpeg", ".webp"})
     for p in srcs:
         img = Image.open(p).convert("RGB")
@@ -54,6 +58,7 @@ def cmd_prep(a):
 
 def torch_one(inp, out):
     """Child process: one pixelize run; prints JSON stats."""
+    import resource  # Unix only; only this stage needs it, so the others run on Windows too
     import torch
     from pixeloe.torch.pixelize import pixelize
 

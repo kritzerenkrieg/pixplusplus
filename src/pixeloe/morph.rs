@@ -166,8 +166,9 @@ pub fn local_stat(img: &Img, kernel: usize, stride: usize, stat: Stat) -> Img {
                 Stat::Min => buf.iter().cloned().fold(f32::INFINITY, f32::min),
                 Stat::Max => buf.iter().cloned().fold(f32::NEG_INFINITY, f32::max),
                 Stat::Median => {
-                    buf.sort_by(|a, b| a.total_cmp(b));
-                    buf[(buf.len() - 1) / 2]
+                    // The lower median; selection gives the same element as a full sort.
+                    let mid = (buf.len() - 1) / 2;
+                    *buf.select_nth_unstable_by(mid, |a, b| a.total_cmp(b)).1
                 }
             };
         }
