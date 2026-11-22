@@ -31,7 +31,7 @@ chmod +x pixplusplus-cli-v<version>-x86_64-linux && ./pixplusplus-cli-v<version>
 
 The GUI needs what any desktop has: OpenGL and xkbcommon, and for file dialogs the desktop
 portal with a file-chooser backend (or `zenity`). The `.deb` installs these; the AppImage uses
-the system's. The PixelOE licence comes inside the `.deb` and AppImage, and beside the CLI as
+the system's, with its own xkbcommon as a fallback. The PixelOE licence comes inside the `.deb` and AppImage, and beside the CLI as
 `PixelOE-Apache-2.0.txt`.
 Windows gets a `.zip` with the CLI and GUI. Releases up to 1.1.0 had a Linux `.tar.gz` instead,
 whose binaries need a recent glibc (2.43 for 1.1.0).

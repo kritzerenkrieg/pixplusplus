@@ -1,0 +1,10 @@
+#!/bin/sh
+# AppImage entry point (N1). winit loads xkbcommon and its X11 part at run time; the AppImage
+# carries copies in usr/lib as a fallback, used only when the system has none of its own.
+here=$(dirname "$(readlink -f "$0")")
+ldconfig=$(command -v ldconfig || echo /sbin/ldconfig)
+if ! "$ldconfig" -p 2>/dev/null | grep -q 'libxkbcommon-x11\.so\.0'; then
+    LD_LIBRARY_PATH="$here/usr/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+    export LD_LIBRARY_PATH
+fi
+exec "$here/usr/bin/pixplusplus-gui" "$@"

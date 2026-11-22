@@ -140,6 +140,8 @@ jobs:
           for f in dist/*.deb; do dpkg-deb --info "$f"; dpkg-deb --contents "$f"; done
       - name: AppImage
         run: |
+          # Fallback libraries the AppImage bundles (see packaging/linux/AppRun).
+          sudo apt-get update && sudo apt-get install -y libxkbcommon0 libxkbcommon-x11-0 libxcb-xkb1
           curl -sSLo appimagetool "$APPIMAGETOOL_URL"
           curl -sSLo runtime "$RUNTIME_URL"
           echo "$APPIMAGETOOL_SHA256  appimagetool" | sha256sum -c -
@@ -149,7 +151,9 @@ jobs:
           packaging/linux/build-appimage.sh target/release/pixplusplus-gui ./appimagetool runtime "$out"
           chmod +x "$out"
           (cd "$(mktemp -d)" && "$GITHUB_WORKSPACE/$out" --appimage-extract >/dev/null && find squashfs-root | sort \
-            && test -f squashfs-root/usr/share/doc/pixplusplus-gui/PixelOE-Apache-2.0.txt)
+            && test -f squashfs-root/usr/share/doc/pixplusplus-gui/PixelOE-Apache-2.0.txt \
+            && test -f squashfs-root/usr/lib/libxkbcommon-x11.so.0 \
+            && sh -n squashfs-root/AppRun)
       - uses: actions/upload-artifact@v4
         with:
           name: linux-packages
