@@ -17,18 +17,21 @@ Two methods:
 
 ## Download
 
-Each tagged version has a [GitHub Release](https://github.com/kritzerenkrieg/pixplusplus/releases)
-with the CLI and GUI for Linux (x86_64, `.tar.gz`) and Windows (x86_64, `.zip`). From the release
-after 1.1.0, the GUI alone also comes as a Debian package and an AppImage (x86_64, glibc 2.35 or
-newer, e.g. Ubuntu 22.04 and later):
+Each tagged version has a [GitHub Release](https://github.com/kritzerenkrieg/pixplusplus/releases).
+From the release after 1.1.0, the Linux files run with nothing else to install (x86_64; the GUI
+needs glibc 2.35 or newer, e.g. Ubuntu 22.04 or Debian 12 and later):
 
 ```sh
+# GUI, either of:
 sudo apt install ./pixplusplus-gui_<version>-1_amd64.deb      # menu entry "Pix++"
 chmod +x pixplusplus-gui-v<version>-x86_64.AppImage && ./pixplusplus-gui-v<version>-x86_64.AppImage
+# CLI, one static binary for any x86_64 Linux:
+chmod +x pixplusplus-cli-v<version>-x86_64-linux && ./pixplusplus-cli-v<version>-x86_64-linux --help
 ```
 
-On Linux the GUI's file dialogs use the desktop portal (`xdg-desktop-portal`, part of most
-desktops); nothing else needs installing.
+The GUI's file dialogs use the desktop portal (`xdg-desktop-portal`, part of most desktops).
+Windows gets a `.zip` with the CLI and GUI. Releases up to 1.1.0 had a Linux `.tar.gz` instead,
+whose binaries need a recent glibc (2.43 for 1.1.0).
 
 ## Build
 

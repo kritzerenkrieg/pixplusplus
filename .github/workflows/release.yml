@@ -1,6 +1,7 @@
-# Q1: pushing a version tag (v1.2.3) builds the CLI and GUI on Linux and Windows (J5),
-# runs the tests, and publishes a GitHub Release with one archive per platform.
-# N1: the release also carries the GUI alone as a Debian package and an AppImage.
+# Q1: pushing a version tag (v1.2.3) runs the tests on Linux and Windows (J5) and publishes a
+# GitHub Release. N1: Windows gets a zip of the CLI and GUI; Linux gets ready-to-run builds
+# with nothing to install: the GUI as a Debian package and an AppImage, and the CLI as one
+# static binary (`pixplusplus-cli-*`). There is no Linux archive.
 # The tag must match the version in Cargo.toml.
 # A pull request that changes this file or packaging/ runs every build as a dry run; only a
 # tag publishes.
@@ -54,26 +55,53 @@ jobs:
         run: cargo test --release --features gui
       - name: Build CLI and GUI
         run: cargo build --release --features gui
-      - name: Package
+      # Linux binaries come from the linux-packages and linux-cli jobs (N1); this job only tests
+      # there.
+      - name: Package (Windows)
+        if: runner.os == 'Windows'
         shell: bash
         run: |
           name="pixplusplus-${{ steps.version.outputs.v }}-${{ matrix.target }}"
           mkdir -p "dist/$name"
           cp README.md "dist/$name/"
           cp -r LICENSES "dist/$name/"
-          if [ "${{ runner.os }}" = "Windows" ]; then
-            cp target/release/pixplusplus.exe target/release/pixplusplus-gui.exe "dist/$name/"
-            (cd dist && 7z a "$name.zip" "$name" >/dev/null)
-          else
-            cp target/release/pixplusplus target/release/pixplusplus-gui "dist/$name/"
-            tar -C dist -czf "dist/$name.tar.gz" "$name"
-          fi
+          cp target/release/pixplusplus.exe target/release/pixplusplus-gui.exe "dist/$name/"
+          (cd dist && 7z a "$name.zip" "$name" >/dev/null)
       - uses: actions/upload-artifact@v4
+        if: runner.os == 'Windows'
         with:
           name: ${{ matrix.target }}
-          path: |
-            dist/*.tar.gz
-            dist/*.zip
+          path: dist/*.zip
+          if-no-files-found: error
+
+  # N1: the CLI as one static binary with glibc linked in, so it runs on any x86_64 Linux with
+  # nothing installed. Static glibc rather than musl: musl's maths functions changed the
+  # automatic importance map (E7) and default outputs, and ran up to 30 % slower.
+  linux-cli:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Version from Cargo.toml
+        id: version
+        run: echo "v=v$(sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -1)" >> "$GITHUB_OUTPUT"
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Build the static CLI
+        env:
+          RUSTFLAGS: "-C target-feature=+crt-static"
+        run: |
+          cargo build --release --target x86_64-unknown-linux-gnu --bin pixplusplus
+          mkdir -p dist
+          out="dist/pixplusplus-cli-${{ steps.version.outputs.v }}-x86_64-linux"
+          strip -o "$out" target/x86_64-unknown-linux-gnu/release/pixplusplus
+          file "$out"
+          file "$out" | grep -q 'static' || { echo "::error::not statically linked"; exit 1; }
+          "$out" --version
+          "$out" tests/fixtures/saliency_src.png -o /tmp/check.png -s 48 -k 8
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linux-cli
+          path: dist/pixplusplus-cli-*
           if-no-files-found: error
 
   # N1: the GUI alone as a .deb and an AppImage. Built on the oldest supported Ubuntu, so the
@@ -125,7 +153,7 @@ jobs:
           if-no-files-found: error
 
   release:
-    needs: [build, linux-packages]
+    needs: [build, linux-packages, linux-cli]
     if: github.ref_type == 'tag'
     runs-on: ubuntu-latest
     permissions:

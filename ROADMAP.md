@@ -119,7 +119,7 @@ Goal: the default palette gives each main hue a colour first, then distinct acce
 
 ## Phase N: Linux packages (N1)
 
-- [ ] GUI as `.deb` and AppImage (N1): the release workflow builds both and attaches them to the Release. Done when: a pull-request dry run builds both and lists their contents, and the next tagged Release carries them.
+- [ ] Ready-to-run Linux builds (N1): the release workflow attaches the GUI as `.deb` and AppImage and the CLI as a static binary, and no Linux archive. Done when: a pull-request dry run builds all three, the CLI is statically linked and runs, and the next tagged Release carries them. (2026-11-22: the first dry runs built the `.deb` (stripped, 20 MB installed) and the AppImage (9 MB).)
 
 ## Releases (Q1)
 
