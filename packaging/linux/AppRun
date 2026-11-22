@@ -3,7 +3,8 @@
 # carries copies in usr/lib as a fallback, used only when the system has none of its own.
 here=$(dirname "$(readlink -f "$0")")
 ldconfig=$(command -v ldconfig || echo /sbin/ldconfig)
-if ! "$ldconfig" -p 2>/dev/null | grep -q 'libxkbcommon-x11\.so\.0'; then
+# Only a 64-bit entry counts: ldconfig marks those "(libc6,x86-64)"; a 32-bit one can't load.
+if ! "$ldconfig" -p 2>/dev/null | grep -q 'libxkbcommon-x11\.so\.0 (libc6,x86-64)'; then
     LD_LIBRARY_PATH="$here/usr/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
     export LD_LIBRARY_PATH
 fi
