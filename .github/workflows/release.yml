@@ -93,8 +93,12 @@ jobs:
         run: echo "v=v$(sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -1)" >> "$GITHUB_OUTPUT"
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
+      # Stripped once here: the release profile keeps debug symbols for profiling (130 MB),
+      # and cargo-deb doesn't strip a binary it didn't build.
       - name: Build the GUI
-        run: cargo build --release --features gui --bin pixplusplus-gui
+        run: |
+          cargo build --release --features gui --bin pixplusplus-gui
+          strip target/release/pixplusplus-gui
       - name: Debian package
         run: |
           cargo install cargo-deb --version "$CARGO_DEB_VERSION" --locked
@@ -108,9 +112,8 @@ jobs:
           echo "$APPIMAGETOOL_SHA256  appimagetool" | sha256sum -c -
           echo "$RUNTIME_SHA256  runtime" | sha256sum -c -
           chmod +x appimagetool
-          strip -o pixplusplus-gui target/release/pixplusplus-gui
           out="dist/pixplusplus-gui-${{ steps.version.outputs.v }}-x86_64.AppImage"
-          packaging/linux/build-appimage.sh pixplusplus-gui ./appimagetool runtime "$out"
+          packaging/linux/build-appimage.sh target/release/pixplusplus-gui ./appimagetool runtime "$out"
           chmod +x "$out"
           (cd "$(mktemp -d)" && "$GITHUB_WORKSPACE/$out" --appimage-extract >/dev/null && find squashfs-root | sort)
       - uses: actions/upload-artifact@v4
