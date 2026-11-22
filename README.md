@@ -1,5 +1,7 @@
 # Pix++
 
+![The Pix++ GUI turning an anime illustration into pixel art with PixelOE](docs/images/gui-demo.png)
+
 Pix++ (`pixplusplus`) is a procedural pixelization program: concept art in, pixel art out.
 It comes as a command-line tool and a desktop GUI, written in Rust.
 
