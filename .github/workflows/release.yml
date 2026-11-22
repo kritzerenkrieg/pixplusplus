@@ -98,10 +98,15 @@ jobs:
           file "$out" | grep -q 'static' || { echo "::error::not statically linked"; exit 1; }
           "$out" --version
           "$out" tests/fixtures/saliency_src.png -o /tmp/check.png -s 48 -k 8
+          # The binary contains the PixelOE port, so its licence ships beside it as a release
+          # file (Apache-2.0 §4(a), G1); the .deb, AppImage and Windows zip carry it inside.
+          cp LICENSES/PixelOE-Apache-2.0.txt dist/
       - uses: actions/upload-artifact@v4
         with:
           name: linux-cli
-          path: dist/pixplusplus-cli-*
+          path: |
+            dist/pixplusplus-cli-*
+            dist/PixelOE-Apache-2.0.txt
           if-no-files-found: error
 
   # N1: the GUI alone as a .deb and an AppImage. Built on the oldest supported Ubuntu, so the
@@ -143,7 +148,8 @@ jobs:
           out="dist/pixplusplus-gui-${{ steps.version.outputs.v }}-x86_64.AppImage"
           packaging/linux/build-appimage.sh target/release/pixplusplus-gui ./appimagetool runtime "$out"
           chmod +x "$out"
-          (cd "$(mktemp -d)" && "$GITHUB_WORKSPACE/$out" --appimage-extract >/dev/null && find squashfs-root | sort)
+          (cd "$(mktemp -d)" && "$GITHUB_WORKSPACE/$out" --appimage-extract >/dev/null && find squashfs-root | sort \
+            && test -f squashfs-root/usr/share/doc/pixplusplus-gui/PixelOE-Apache-2.0.txt)
       - uses: actions/upload-artifact@v4
         with:
           name: linux-packages

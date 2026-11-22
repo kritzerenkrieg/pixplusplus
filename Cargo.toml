@@ -34,10 +34,11 @@ Turns images into pixel art with a hard palette limit, using Pixelated Image Abs
 (Gerstner et al. 2012) or Pixelization on Outline Expansion (PixelOE)."""
 section = "graphics"
 priority = "optional"
-# The binary links only libc; OpenGL and xkbcommon are loaded at run time, and file dialogs
-# go through the desktop portal.
-depends = "$auto, libgl1, libxkbcommon0"
-recommends = "xdg-desktop-portal"
+# The binary links only libc; OpenGL and xkbcommon (plus its X11 part, which winit loads
+# separately) are loaded at run time, so `$auto` can't see them. File dialogs go through the
+# desktop portal, which needs a FileChooser backend; rfd falls back to zenity without one.
+depends = "$auto, libgl1, libxkbcommon0, libxkbcommon-x11-0"
+recommends = "xdg-desktop-portal, xdg-desktop-portal-gtk | xdg-desktop-portal-backend | zenity"
 assets = [
     ["target/release/pixplusplus-gui", "usr/bin/", "755"],
     ["packaging/linux/pixplusplus-gui.desktop", "usr/share/applications/", "644"],

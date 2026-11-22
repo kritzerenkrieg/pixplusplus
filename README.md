@@ -29,7 +29,10 @@ chmod +x pixplusplus-gui-v<version>-x86_64.AppImage && ./pixplusplus-gui-v<versi
 chmod +x pixplusplus-cli-v<version>-x86_64-linux && ./pixplusplus-cli-v<version>-x86_64-linux --help
 ```
 
-The GUI's file dialogs use the desktop portal (`xdg-desktop-portal`, part of most desktops).
+The GUI needs what any desktop has: OpenGL and xkbcommon, and for file dialogs the desktop
+portal with a file-chooser backend (or `zenity`). The `.deb` installs these; the AppImage uses
+the system's. The PixelOE licence comes inside the `.deb` and AppImage, and beside the CLI as
+`PixelOE-Apache-2.0.txt`.
 Windows gets a `.zip` with the CLI and GUI. Releases up to 1.1.0 had a Linux `.tar.gz` instead,
 whose binaries need a recent glibc (2.43 for 1.1.0).
 
