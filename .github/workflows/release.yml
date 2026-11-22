@@ -1,11 +1,19 @@
-# Q1: pushing a version tag (v1.2.3) builds the CLI and GUI on Linux and Windows (J5),
-# runs the tests, and publishes a GitHub Release with one archive per platform.
+# Q1: pushing a version tag (v1.2.3) runs the tests on Linux and Windows (J5) and publishes a
+# GitHub Release. N1: Windows gets a zip of the CLI and GUI; Linux gets ready-to-run builds
+# with nothing to install: the GUI as a Debian package and an AppImage, and the CLI as one
+# static binary (`pixplusplus-cli-*`). There is no Linux archive.
 # The tag must match the version in Cargo.toml.
+# A pull request that changes this file or packaging/ runs every build as a dry run; only a
+# tag publishes.
 name: Release
 
 on:
   push:
     tags: ["v*"]
+  pull_request:
+    paths:
+      - ".github/workflows/release.yml"
+      - "packaging/**"
 
 permissions:
   contents: read
@@ -27,11 +35,13 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
-      - name: Tag matches Cargo.toml
+      - name: Version from Cargo.toml (must match the tag)
+        id: version
         shell: bash
         run: |
           v=$(sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -1)
-          if [ "v$v" != "$GITHUB_REF_NAME" ]; then
+          echo "v=v$v" >> "$GITHUB_OUTPUT"
+          if [ "$GITHUB_REF_TYPE" = "tag" ] && [ "v$v" != "$GITHUB_REF_NAME" ]; then
             echo "::error::tag $GITHUB_REF_NAME does not match Cargo.toml version $v"
             exit 1
           fi
@@ -45,30 +55,116 @@ jobs:
         run: cargo test --release --features gui
       - name: Build CLI and GUI
         run: cargo build --release --features gui
-      - name: Package
+      # Linux binaries come from the linux-packages and linux-cli jobs (N1); this job only tests
+      # there.
+      - name: Package (Windows)
+        if: runner.os == 'Windows'
         shell: bash
         run: |
-          name="pixplusplus-${GITHUB_REF_NAME}-${{ matrix.target }}"
+          name="pixplusplus-${{ steps.version.outputs.v }}-${{ matrix.target }}"
           mkdir -p "dist/$name"
           cp README.md "dist/$name/"
           cp -r LICENSES "dist/$name/"
-          if [ "${{ runner.os }}" = "Windows" ]; then
-            cp target/release/pixplusplus.exe target/release/pixplusplus-gui.exe "dist/$name/"
-            (cd dist && 7z a "$name.zip" "$name" >/dev/null)
-          else
-            cp target/release/pixplusplus target/release/pixplusplus-gui "dist/$name/"
-            tar -C dist -czf "dist/$name.tar.gz" "$name"
-          fi
+          cp target/release/pixplusplus.exe target/release/pixplusplus-gui.exe "dist/$name/"
+          (cd dist && 7z a "$name.zip" "$name" >/dev/null)
       - uses: actions/upload-artifact@v4
+        if: runner.os == 'Windows'
         with:
           name: ${{ matrix.target }}
+          path: dist/*.zip
+          if-no-files-found: error
+
+  # N1: the CLI as one static binary with glibc linked in, so it runs on any x86_64 Linux with
+  # nothing installed. Static glibc rather than musl: musl's maths functions changed the
+  # automatic importance map (E7) and default outputs, and ran up to 30 % slower.
+  linux-cli:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Version from Cargo.toml
+        id: version
+        run: echo "v=v$(sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -1)" >> "$GITHUB_OUTPUT"
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Build the static CLI
+        env:
+          RUSTFLAGS: "-C target-feature=+crt-static"
+        run: |
+          cargo build --release --target x86_64-unknown-linux-gnu --bin pixplusplus
+          mkdir -p dist
+          out="dist/pixplusplus-cli-${{ steps.version.outputs.v }}-x86_64-linux"
+          strip -o "$out" target/x86_64-unknown-linux-gnu/release/pixplusplus
+          file "$out"
+          file "$out" | grep -q 'static' || { echo "::error::not statically linked"; exit 1; }
+          "$out" --version
+          "$out" tests/fixtures/saliency_src.png -o /tmp/check.png -s 48 -k 8
+          # The binary contains the PixelOE port, so its licence ships beside it as a release
+          # file (Apache-2.0 §4(a), G1); the .deb, AppImage and Windows zip carry it inside.
+          cp LICENSES/PixelOE-Apache-2.0.txt dist/
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linux-cli
           path: |
-            dist/*.tar.gz
-            dist/*.zip
+            dist/pixplusplus-cli-*
+            dist/PixelOE-Apache-2.0.txt
+          if-no-files-found: error
+
+  # N1: the GUI alone as a .deb and an AppImage. Built on the oldest supported Ubuntu, so the
+  # packages need glibc 2.35 or newer and run on more distros than an ubuntu-latest build.
+  linux-packages:
+    runs-on: ubuntu-22.04
+    env:
+      CARGO_DEB_VERSION: "3.8.0"
+      APPIMAGETOOL_URL: https://github.com/AppImage/appimagetool/releases/download/1.9.1/appimagetool-x86_64.AppImage
+      APPIMAGETOOL_SHA256: ed4ce84f0d9caff66f50bcca6ff6f35aae54ce8135408b3fa33abfc3cb384eb0
+      RUNTIME_URL: https://github.com/AppImage/type2-runtime/releases/download/20251108/runtime-x86_64
+      RUNTIME_SHA256: 2fca8b443c92510f1483a883f60061ad09b46b978b2631c807cd873a47ec260d
+    steps:
+      - uses: actions/checkout@v4
+      - name: Version from Cargo.toml
+        id: version
+        run: echo "v=v$(sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -1)" >> "$GITHUB_OUTPUT"
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      # Stripped once here: the release profile keeps debug symbols for profiling (130 MB),
+      # and cargo-deb doesn't strip a binary it didn't build.
+      - name: Build the GUI
+        run: |
+          cargo build --release --features gui --bin pixplusplus-gui
+          strip target/release/pixplusplus-gui
+      - name: Debian package
+        run: |
+          cargo install cargo-deb --version "$CARGO_DEB_VERSION" --locked
+          mkdir -p dist
+          cargo deb --no-build --output dist/
+          for f in dist/*.deb; do dpkg-deb --info "$f"; dpkg-deb --contents "$f"; done
+      - name: AppImage
+        run: |
+          # Fallback libraries the AppImage bundles (see packaging/linux/AppRun).
+          sudo apt-get update && sudo apt-get install -y libxkbcommon0 libxkbcommon-x11-0 libxcb-xkb1
+          curl -sSLo appimagetool "$APPIMAGETOOL_URL"
+          curl -sSLo runtime "$RUNTIME_URL"
+          echo "$APPIMAGETOOL_SHA256  appimagetool" | sha256sum -c -
+          echo "$RUNTIME_SHA256  runtime" | sha256sum -c -
+          chmod +x appimagetool
+          out="dist/pixplusplus-gui-${{ steps.version.outputs.v }}-x86_64.AppImage"
+          packaging/linux/build-appimage.sh target/release/pixplusplus-gui ./appimagetool runtime "$out"
+          chmod +x "$out"
+          (cd "$(mktemp -d)" && "$GITHUB_WORKSPACE/$out" --appimage-extract >/dev/null && find squashfs-root | sort \
+            && test -f squashfs-root/usr/share/doc/pixplusplus-gui/PixelOE-Apache-2.0.txt \
+            && test -f squashfs-root/usr/lib/libxkbcommon-x11.so.0 \
+            && sh -n squashfs-root/AppRun)
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linux-packages
+          path: |
+            dist/*.deb
+            dist/*.AppImage
           if-no-files-found: error
 
   release:
-    needs: build
+    needs: [build, linux-packages, linux-cli]
+    if: github.ref_type == 'tag'
     runs-on: ubuntu-latest
     permissions:
       contents: write
