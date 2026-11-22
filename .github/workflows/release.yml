@@ -1,11 +1,18 @@
 # Q1: pushing a version tag (v1.2.3) builds the CLI and GUI on Linux and Windows (J5),
 # runs the tests, and publishes a GitHub Release with one archive per platform.
+# N1: the release also carries the GUI alone as a Debian package and an AppImage.
 # The tag must match the version in Cargo.toml.
+# A pull request that changes this file or packaging/ runs every build as a dry run; only a
+# tag publishes.
 name: Release
 
 on:
   push:
     tags: ["v*"]
+  pull_request:
+    paths:
+      - ".github/workflows/release.yml"
+      - "packaging/**"
 
 permissions:
   contents: read
@@ -27,11 +34,13 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
-      - name: Tag matches Cargo.toml
+      - name: Version from Cargo.toml (must match the tag)
+        id: version
         shell: bash
         run: |
           v=$(sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -1)
-          if [ "v$v" != "$GITHUB_REF_NAME" ]; then
+          echo "v=v$v" >> "$GITHUB_OUTPUT"
+          if [ "$GITHUB_REF_TYPE" = "tag" ] && [ "v$v" != "$GITHUB_REF_NAME" ]; then
             echo "::error::tag $GITHUB_REF_NAME does not match Cargo.toml version $v"
             exit 1
           fi
@@ -48,7 +57,7 @@ jobs:
       - name: Package
         shell: bash
         run: |
-          name="pixplusplus-${GITHUB_REF_NAME}-${{ matrix.target }}"
+          name="pixplusplus-${{ steps.version.outputs.v }}-${{ matrix.target }}"
           mkdir -p "dist/$name"
           cp README.md "dist/$name/"
           cp -r LICENSES "dist/$name/"
@@ -67,8 +76,54 @@ jobs:
             dist/*.zip
           if-no-files-found: error
 
+  # N1: the GUI alone as a .deb and an AppImage. Built on the oldest supported Ubuntu, so the
+  # packages need glibc 2.35 or newer and run on more distros than an ubuntu-latest build.
+  linux-packages:
+    runs-on: ubuntu-22.04
+    env:
+      CARGO_DEB_VERSION: "3.8.0"
+      APPIMAGETOOL_URL: https://github.com/AppImage/appimagetool/releases/download/1.9.1/appimagetool-x86_64.AppImage
+      APPIMAGETOOL_SHA256: ed4ce84f0d9caff66f50bcca6ff6f35aae54ce8135408b3fa33abfc3cb384eb0
+      RUNTIME_URL: https://github.com/AppImage/type2-runtime/releases/download/20251108/runtime-x86_64
+      RUNTIME_SHA256: 2fca8b443c92510f1483a883f60061ad09b46b978b2631c807cd873a47ec260d
+    steps:
+      - uses: actions/checkout@v4
+      - name: Version from Cargo.toml
+        id: version
+        run: echo "v=v$(sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -1)" >> "$GITHUB_OUTPUT"
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Build the GUI
+        run: cargo build --release --features gui --bin pixplusplus-gui
+      - name: Debian package
+        run: |
+          cargo install cargo-deb --version "$CARGO_DEB_VERSION" --locked
+          mkdir -p dist
+          cargo deb --no-build --output dist/
+          for f in dist/*.deb; do dpkg-deb --info "$f"; dpkg-deb --contents "$f"; done
+      - name: AppImage
+        run: |
+          curl -sSLo appimagetool "$APPIMAGETOOL_URL"
+          curl -sSLo runtime "$RUNTIME_URL"
+          echo "$APPIMAGETOOL_SHA256  appimagetool" | sha256sum -c -
+          echo "$RUNTIME_SHA256  runtime" | sha256sum -c -
+          chmod +x appimagetool
+          strip -o pixplusplus-gui target/release/pixplusplus-gui
+          out="dist/pixplusplus-gui-${{ steps.version.outputs.v }}-x86_64.AppImage"
+          packaging/linux/build-appimage.sh pixplusplus-gui ./appimagetool runtime "$out"
+          chmod +x "$out"
+          (cd "$(mktemp -d)" && "$GITHUB_WORKSPACE/$out" --appimage-extract >/dev/null && find squashfs-root | sort)
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linux-packages
+          path: |
+            dist/*.deb
+            dist/*.AppImage
+          if-no-files-found: error
+
   release:
-    needs: build
+    needs: [build, linux-packages]
+    if: github.ref_type == 'tag'
     runs-on: ubuntu-latest
     permissions:
       contents: write

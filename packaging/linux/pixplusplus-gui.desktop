@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=Pix++
+GenericName=Pixel art converter
+Comment=Turn images into pixel art with a limited palette
+Exec=pixplusplus-gui
+Icon=pixplusplus-gui
+Terminal=false
+Categories=Graphics;RasterGraphics;
+Keywords=pixel;pixelate;palette;
+StartupWMClass=pixplusplus-gui

@@ -23,6 +23,29 @@ required-features = ["gui"]
 [features]
 gui = ["dep:eframe", "dep:rfd"]
 
+# Debian package of the GUI only (N1), built by the release workflow with cargo-deb:
+# `cargo build --release --features gui && cargo deb --no-build`.
+[package.metadata.deb]
+name = "pixplusplus-gui"
+maintainer = "kritzerenkrieg <kritzerenkrieg@users.noreply.github.com>"
+copyright = "kritzerenkrieg"
+extended-description = """\
+Turns images into pixel art with a hard palette limit, using Pixelated Image Abstraction \
+(Gerstner et al. 2012) or Pixelization on Outline Expansion (PixelOE)."""
+section = "graphics"
+priority = "optional"
+# The binary links only libc; OpenGL and xkbcommon are loaded at run time, and file dialogs
+# go through the desktop portal.
+depends = "$auto, libgl1, libxkbcommon0"
+recommends = "xdg-desktop-portal"
+assets = [
+    ["target/release/pixplusplus-gui", "usr/bin/", "755"],
+    ["packaging/linux/pixplusplus-gui.desktop", "usr/share/applications/", "644"],
+    ["packaging/linux/pixplusplus-gui.png", "usr/share/icons/hicolor/256x256/apps/", "644"],
+    ["README.md", "usr/share/doc/pixplusplus-gui/", "644"],
+    ["LICENSES/PixelOE-Apache-2.0.txt", "usr/share/doc/pixplusplus-gui/", "644"],
+]
+
 [dependencies]
 image = { version = "0.25", default-features = false, features = ["png", "jpeg", "webp"] }
 rayon = "1.10"

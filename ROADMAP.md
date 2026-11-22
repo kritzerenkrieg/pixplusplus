@@ -117,6 +117,10 @@ Goal: the default palette gives each main hue a colour first, then distinct acce
 - [x] Q4: PIA uses `--importance auto` by default; `--importance none` for plain PIA; compat always without. Done when: the default output equals the old `--importance auto` output, `--importance none` equals the old default, compat is unchanged. (2026-11-21: all three byte-identical.)
 - [x] Q2: cap the saliency working height at 512. Done when: an 8×1024 input finishes quickly with a full-size map, and normal images keep their map. (2026-11-21: test passes in about 1 s; smoke map byte-identical; harness test passes.)
 
+## Phase N: Linux packages (N1)
+
+- [ ] GUI as `.deb` and AppImage (N1): the release workflow builds both and attaches them to the Release. Done when: a pull-request dry run builds both and lists their contents, and the next tagged Release carries them.
+
 ## Releases (Q1)
 
 - [ ] Release workflow: a `vX.Y.Z` tag matching `Cargo.toml` builds and tests on Linux and Windows and publishes a GitHub Release with both archives. Done when: the first tag's Release has both archives and they run. (2026-11-21: `.github/workflows/release.yml` added; no tag pushed yet.)

@@ -18,8 +18,17 @@ Two methods:
 ## Download
 
 Each tagged version has a [GitHub Release](https://github.com/kritzerenkrieg/pixplusplus/releases)
-with the CLI and GUI for Linux (x86_64, `.tar.gz`) and Windows (x86_64, `.zip`). On Linux the GUI
-needs GTK 3 installed.
+with the CLI and GUI for Linux (x86_64, `.tar.gz`) and Windows (x86_64, `.zip`). From the release
+after 1.1.0, the GUI alone also comes as a Debian package and an AppImage (x86_64, glibc 2.35 or
+newer, e.g. Ubuntu 22.04 and later):
+
+```sh
+sudo apt install ./pixplusplus-gui_<version>-1_amd64.deb      # menu entry "Pix++"
+chmod +x pixplusplus-gui-v<version>-x86_64.AppImage && ./pixplusplus-gui-v<version>-x86_64.AppImage
+```
+
+On Linux the GUI's file dialogs use the desktop portal (`xdg-desktop-portal`, part of most
+desktops); nothing else needs installing.
 
 ## Build
 
