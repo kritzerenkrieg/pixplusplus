@@ -75,7 +75,8 @@ PixelOE:
 
 ```sh
 ./target/release/pixplusplus art.png -o out.png -s 128 --method pixeloe          # unquantised
-./target/release/pixplusplus art.png -o out.png -s 128 --method pixeloe -k 16    # k-means + dither
+./target/release/pixplusplus art.png -o out.png -s 128 --method pixeloe -k 16    # balanced palette, no dither (M1)
+./target/release/pixplusplus art.png -o out.png -s 128 --method pixeloe -k 16 --palette native  # k-means + dither
 #   --oe-thickness 3  --oe-mode contrast|k-centroid|lanczos|nearest|bilinear|...
 #   --oe-sharpen unsharp|laplacian  --oe-dither ordered|error-diffusion|none  --oe-no-match
 #   --oe-post-match   upstream's colour fix after -k (output can then exceed k colours)
@@ -90,10 +91,14 @@ Colour controls, for both methods (1 = unchanged):
 #   --pre-contrast 1.2     so the palette itself picks more vivid or contrasty colours
 ```
 
-Palette (`--palette`, K1, K5):
+Palette (`--palette`, K1, K5, M1):
 
 ```sh
-#   --palette native           the method's own palette (default): PIA's solver, PixelOE's k-means
+#   --palette balanced         the default: each main hue gets a colour first, then distinct accents
+#                              and shades by priority, with no dither. Keeps a small red or a
+#                              second hue that plain merging loses. PixelOE: only with -k.
+#                              PIA: about 4x slower than native. --pyxeled-compat uses native.
+#   --palette native           the method's own palette: PIA's solver, PixelOE's k-means
 #   --palette decimate-oklab   merge the closest colours, keeping the more common one, then map
 #   --palette decimate-rgb     each pixel to its nearest colour with no dither; keeps small vivid
 #                              colours that averaging would grey out. Oklab measures closeness as

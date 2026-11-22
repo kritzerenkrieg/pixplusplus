@@ -1,14 +1,16 @@
 //! Named settings profiles (L1): one JSON file per profile in the platform config folder.
 //!
-//! File shape: `{"version": 2, "settings": {...}}`. Missing settings take the defaults
+//! File shape: `{"version": 3, "settings": {...}}`. Missing settings take the defaults
 //! (`Settings` is `#[serde(default)]`), so profiles written by older builds keep loading.
 //! Version 1 had three methods and an importance source; [`migrate_v1`] maps it (J7).
+//! Before version 3 a missing palette meant native; [`migrate_v2`] keeps that (M1).
 
 use crate::settings::Settings;
 use std::path::{Path, PathBuf};
 
-/// Profile file format version. 2: two methods, importance on/off (J7).
-const VERSION: u32 = 2;
+/// Profile file format version. 2: two methods, importance on/off (J7). 3: the default
+/// palette is balanced (M1).
+const VERSION: u32 = 3;
 /// Longest profile name, in characters.
 const MAX_NAME: usize = 64;
 
@@ -39,6 +41,14 @@ fn migrate_v1(settings: &mut serde_json::Value) {
         _ => true,
     };
     s.insert("importance".into(), importance.into());
+}
+
+/// Version 2 → 3: the default palette became balanced (M1), so a profile that left the palette
+/// out, meaning native when it was saved, says native.
+fn migrate_v2(settings: &mut serde_json::Value) {
+    if let Some(s) = settings.as_object_mut() {
+        s.entry("palette").or_insert_with(|| "native".into());
+    }
 }
 
 /// The profiles folder: `pixplusplus/profiles` in the platform config folder. `None` when the
@@ -175,6 +185,9 @@ pub fn load(dir: &Path, name: &str) -> Result<Settings, String> {
     if version < 2 {
         migrate_v1(&mut settings);
     }
+    if version < 3 {
+        migrate_v2(&mut settings);
+    }
     serde_json::from_value(settings).map_err(|e| bad(&e))
 }
 
@@ -303,6 +316,39 @@ mod tests {
             .collect();
         assert_eq!(names, vec![std::ffi::OsString::from("p.json")]);
         assert_eq!(load(&dir, "p").unwrap().size, 42);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn older_profiles_without_a_palette_stay_native() {
+        use crate::settings::PaletteChoice;
+        let dir = temp_dir("v2-palette");
+        std::fs::create_dir_all(&dir).unwrap();
+        for (name, body, want) in [
+            (
+                "v1",
+                r#"{"version": 1, "settings": {}}"#,
+                PaletteChoice::Native,
+            ),
+            (
+                "v2",
+                r#"{"version": 2, "settings": {"size": 64}}"#,
+                PaletteChoice::Native,
+            ),
+            (
+                "v2-set",
+                r#"{"version": 2, "settings": {"palette": "decimate-oklab"}}"#,
+                PaletteChoice::DecimateOklab,
+            ),
+            (
+                "v3",
+                r#"{"version": 3, "settings": {}}"#,
+                PaletteChoice::Balanced,
+            ),
+        ] {
+            std::fs::write(dir.join(format!("{name}.json")), body).unwrap();
+            assert_eq!(load(&dir, name).unwrap().palette, want, "{name}");
+        }
         let _ = std::fs::remove_dir_all(&dir);
     }
 
